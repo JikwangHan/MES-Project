@@ -76,6 +76,25 @@ const init = () => {
     );
   `);
 
+  // 기준정보: 설비
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS equipments (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      company_id TEXT NOT NULL,
+      name TEXT NOT NULL,
+      code TEXT NOT NULL,
+      process_id INTEGER,
+      comm_type TEXT,
+      comm_config_json TEXT,
+      is_active INTEGER DEFAULT 1,
+      created_by_role TEXT,
+      created_at TEXT DEFAULT (datetime('now')),
+      updated_at TEXT DEFAULT (datetime('now')),
+      FOREIGN KEY (process_id) REFERENCES processes(id),
+      CONSTRAINT uniq_company_equipment UNIQUE (company_id, code)
+    );
+  `);
+
   // 감사 로그
   db.exec(`
     CREATE TABLE IF NOT EXISTS audit_logs (
