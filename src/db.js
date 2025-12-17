@@ -41,6 +41,24 @@ const init = () => {
     );
   `);
 
+  // 기준정보: BOM (완제품-자재 관계)
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS item_boms (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      company_id TEXT NOT NULL,
+      parent_item_id INTEGER NOT NULL,
+      child_item_id INTEGER NOT NULL,
+      qty REAL NOT NULL,
+      unit TEXT,
+      created_by_role TEXT,
+      created_at TEXT DEFAULT (datetime('now')),
+      updated_at TEXT DEFAULT (datetime('now')),
+      FOREIGN KEY (parent_item_id) REFERENCES items(id),
+      FOREIGN KEY (child_item_id) REFERENCES items(id),
+      CONSTRAINT uniq_company_bom UNIQUE (company_id, parent_item_id, child_item_id)
+    );
+  `);
+
   // 감사 로그
   db.exec(`
     CREATE TABLE IF NOT EXISTS audit_logs (
