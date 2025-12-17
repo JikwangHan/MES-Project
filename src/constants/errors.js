@@ -10,5 +10,7 @@ module.exports = {
   BOM_SELF_REFERENCE: { code: 'BOM_SELF_REFERENCE', message: '완제품과 자재가 동일할 수 없습니다.' },
   PROCESS_CODE_DUPLICATE: { code: 'PROCESS_CODE_DUPLICATE', message: '동일 공정 코드가 이미 존재합니다.' },
   PROCESS_PARENT_NOT_FOUND: { code: 'PROCESS_PARENT_NOT_FOUND', message: 'parent_id가 존재하지 않습니다.' },
+  EQUIPMENT_CODE_DUPLICATE: { code: 'EQUIPMENT_CODE_DUPLICATE', message: '동일 설비 코드가 이미 존재합니다.' },
+  EQUIPMENT_PROCESS_NOT_FOUND: { code: 'EQUIPMENT_PROCESS_NOT_FOUND', message: 'process_id가 존재하지 않습니다.' },
   SERVER_ERROR: { code: 'SERVER_ERROR', message: '서버 오류가 발생했습니다.' },
 };
