@@ -20,6 +20,50 @@ function Assert-FailJson($text) {
 function Write-Info($msg) { Write-Host "[INFO] $msg" -ForegroundColor Cyan }
 
 $baseUrl = "http://localhost:4000"
+$companyA = "COMPANY-A"
+
+# 공통 유틸 (Ticket-06 스모크에서 사용)
+function New-TempJsonFile($prefix, $jsonText) {
+  $path = Join-Path $env:TEMP "$($prefix)_$((Get-Date -Format 'yyyyMMddHHmmssfff')).json"
+  Set-Content -Path $path -Value $jsonText -Encoding utf8
+  return $path
+}
+
+function Invoke-CurlJson($method, $url, $companyId, $role, $jsonFilePath) {
+  $respPath = New-TemporaryFile
+  $status = & curl.exe -s -o $respPath -w "%{http_code}" `
+    -X $method $url `
+    -H "Content-Type: application/json" `
+    -H "x-company-id: $companyId" `
+    -H "x-role: $role" `
+    --data "@$jsonFilePath"
+  return @{ Status = $status; RespPath = $respPath }
+}
+
+function Assert-Status($actual, $expectedArray, $label, $respPath) {
+  if ($expectedArray -notcontains $actual) {
+    Write-Host "[FAIL][$label] 기대=$(($expectedArray -join '/')), 실제=$actual" -ForegroundColor Red
+    Write-Host "응답 본문:" -ForegroundColor Yellow
+    Get-Content $respPath | Write-Host
+    exit 1
+  }
+  Write-Host "[PASS][$label] 기대 상태 코드 확인: $actual" -ForegroundColor Green
+}
+
+function Get-JsonId($respPath) {
+  $json = Get-Content $respPath -Raw | ConvertFrom-Json
+  if ($null -ne $json.data -and $null -ne $json.data.id) { return [int]$json.data.id }
+  if ($null -ne $json.id) { return [int]$json.id }
+  Write-Host "[FAIL] id를 응답에서 찾지 못했습니다." -ForegroundColor Red
+  Get-Content $respPath | Write-Host
+  exit 1
+}
+
+function Safe-Remove($path) {
+  if (Test-Path $path) { Remove-Item $path -Force -ErrorAction SilentlyContinue }
+}
+
+$baseUrl = "http://localhost:4000"
 $company = "SMOKE-CO"
 $roleOp = "OPERATOR"
 $roleViewer = "VIEWER"
@@ -268,3 +312,98 @@ finally {
 }
 
 Write-Host "[PASS] Ticket-05 Equipments 스모크 완료" -ForegroundColor Green
+
+# -----------------------------
+# Ticket-06 Smoke: Defect Types (강화형 4케이스)
+# -----------------------------
+Write-Host "`n[SMOKE] Ticket-06 Defect Types 시작" -ForegroundColor Cyan
+
+# (A) OPERATOR 등록: 201 또는 409 허용
+$tsDef = Get-Date -Format "yyyyMMddHHmmss"
+$defJson = @"
+{
+  "name": "스크래치-$tsDef",
+  "code": "DEF-$tsDef",
+  "processId": null,
+  "severity": 2,
+  "isActive": 1
+}
+"@
+$defBody = New-TempJsonFile "smoke_defect" $defJson
+$respA = Invoke-CurlJson "POST" "$baseUrl/api/v1/defect-types" $companyA "OPERATOR" $defBody
+Assert-Status $respA.Status @("201","409") "T06-A(OPERATOR 201/409)" $respA.RespPath
+Safe-Remove $defBody
+Safe-Remove $respA.RespPath
+
+# (B) VIEWER 등록: 403 확인
+$tsDefB = Get-Date -Format "yyyyMMddHHmmss"
+$defJsonB = @"
+{
+  "name": "뷰어차단불량-$tsDefB",
+  "code": "DEF-VIEWER-$tsDefB",
+  "processId": null,
+  "severity": 1,
+  "isActive": 1
+}
+"@
+$defBodyB = New-TempJsonFile "smoke_defect_viewer" $defJsonB
+$respB = Invoke-CurlJson "POST" "$baseUrl/api/v1/defect-types" $companyA "VIEWER" $defBodyB
+Assert-Status $respB.Status @("403") "T06-B(VIEWER 403)" $respB.RespPath
+Safe-Remove $defBodyB
+Safe-Remove $respB.RespPath
+
+# (C) 잘못된 processId(없는 값) → 400
+$tsDefC = Get-Date -Format "yyyyMMddHHmmss"
+$defJsonC = @"
+{
+  "name": "잘못된공정불량-$tsDefC",
+  "code": "DEF-BADPROC-$tsDefC",
+  "processId": 999999,
+  "severity": 3,
+  "isActive": 1
+}
+"@
+$defBodyC = New-TempJsonFile "smoke_defect_badproc" $defJsonC
+$respC = Invoke-CurlJson "POST" "$baseUrl/api/v1/defect-types" $companyA "OPERATOR" $defBodyC
+Assert-Status $respC.Status @("400") "T06-C(BAD PROCESS 400)" $respC.RespPath
+Safe-Remove $defBodyC
+Safe-Remove $respC.RespPath
+
+# (D) 타사 processId 사용 시 400 (교차 테넌트 차단)
+Write-Host "[SMOKE][T06-D] 타사 processId 차단 테스트 시작" -ForegroundColor Cyan
+$tsDefD = Get-Date -Format "yyyyMMddHHmmss"
+$companyB = "COMPANY-B"
+
+# COMPANY-B 공정 생성 → id 파싱
+$procJsonB = @"
+{
+  "name": "타사공정-$tsDefD",
+  "code": "PROC-B-$tsDefD",
+  "parentId": null,
+  "sortOrder": 0
+}
+"@
+$procBodyB = New-TempJsonFile "smoke_process_companyB" $procJsonB
+$respProcB = Invoke-CurlJson "POST" "$baseUrl/api/v1/processes" $companyB "OPERATOR" $procBodyB
+Assert-Status $respProcB.Status @("201","409") "T06-D(PROC-B CREATE)" $respProcB.RespPath
+$processIdB = Get-JsonId $respProcB.RespPath
+Safe-Remove $procBodyB
+Safe-Remove $respProcB.RespPath
+
+# COMPANY-A에서 타사 processId로 등록 → 400
+$defJsonD = @"
+{
+  "name": "타사공정불량-$tsDefD",
+  "code": "DEF-XTENANT-$tsDefD",
+  "processId": $processIdB,
+  "severity": 2,
+  "isActive": 1
+}
+"@
+$defBodyD = New-TempJsonFile "smoke_defect_xtenant" $defJsonD
+$respD = Invoke-CurlJson "POST" "$baseUrl/api/v1/defect-types" $companyA "OPERATOR" $defBodyD
+Assert-Status $respD.Status @("400") "T06-D(XTENANT 400)" $respD.RespPath
+Safe-Remove $defBodyD
+Safe-Remove $respD.RespPath
+
+Write-Host "[PASS] Ticket-06 Defect Types 스모크 완료" -ForegroundColor Green
