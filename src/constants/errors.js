@@ -12,5 +12,7 @@ module.exports = {
   PROCESS_PARENT_NOT_FOUND: { code: 'PROCESS_PARENT_NOT_FOUND', message: 'parent_id가 존재하지 않습니다.' },
   EQUIPMENT_CODE_DUPLICATE: { code: 'EQUIPMENT_CODE_DUPLICATE', message: '동일 설비 코드가 이미 존재합니다.' },
   EQUIPMENT_PROCESS_NOT_FOUND: { code: 'EQUIPMENT_PROCESS_NOT_FOUND', message: 'process_id가 존재하지 않습니다.' },
+  DEFECT_CODE_DUPLICATE: { code: 'DEFECT_CODE_DUPLICATE', message: '동일 불량 코드가 이미 존재합니다.' },
+  DEFECT_PROCESS_NOT_FOUND: { code: 'DEFECT_PROCESS_NOT_FOUND', message: 'process_id가 존재하지 않습니다.' },
   SERVER_ERROR: { code: 'SERVER_ERROR', message: '서버 오류가 발생했습니다.' },
 };
