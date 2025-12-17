@@ -13,6 +13,7 @@ out/
 coverage/
 .cache/
 node_modules/
+data/
 
 # 환경 설정
 .env
