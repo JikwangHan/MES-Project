@@ -1,0 +1,26 @@
+# 운영체제/에디터 기본 무시 목록
+.DS_Store
+Thumbs.db
+*.log
+*.tmp
+.vscode/
+.idea/
+
+# 빌드/캐시
+dist/
+build/
+out/
+coverage/
+.cache/
+node_modules/
+
+# 환경 설정
+.env
+.env.*
+.local
+
+# 임시 파일
+*.swp
+*.swo
+~$*
+*.bak
