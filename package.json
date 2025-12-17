@@ -1,0 +1,14 @@
+{
+  "name": "mes-project",
+  "version": "0.1.0",
+  "description": "MES Project API - Ticket-01 품목유형 등록/조회 예제",
+  "main": "src/server.js",
+  "scripts": {
+    "start": "node src/server.js"
+  },
+  "dependencies": {
+    "better-sqlite3": "^12.5.0",
+    "express": "^5.2.1",
+    "uuid": "^13.0.0"
+  }
+}
