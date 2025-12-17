@@ -176,3 +176,95 @@ finally {
 }
 
 Write-Host "[PASS] Ticket-04 Processes 스모크 완료" -ForegroundColor Green
+
+# -----------------------------
+# Ticket-05 Smoke: Equipments
+# -----------------------------
+Write-Host "`n[SMOKE] Ticket-05 Equipments 시작" -ForegroundColor Cyan
+
+$baseUrl = "http://localhost:4000"
+$companyA = "COMPANY-A"
+
+# 설비 등록: 201 또는 중복 409 허용
+$tsEq = Get-Date -Format "yyyyMMddHHmmss"
+$eqCode = "EQ-$tsEq"
+$eqBodyPath = Join-Path $env:TEMP "smoke_equipment_$tsEq.json"
+
+@"
+{
+  "name": "포장기-$tsEq",
+  "code": "$eqCode",
+  "processId": null,
+  "commType": "MODBUS_TCP",
+  "commConfig": { "ip": "192.168.0.10", "port": 502, "unitId": 1 },
+  "isActive": 1
+}
+"@ | Out-File -FilePath $eqBodyPath -Encoding utf8
+
+try {
+  $respFile = Join-Path $env:TEMP "smoke_equipment_resp_$tsEq.json"
+
+  $status = & curl.exe -s -o $respFile -w "%{http_code}" `
+    -X POST "$baseUrl/api/v1/equipments" `
+    -H "Content-Type: application/json" `
+    -H "x-company-id: $companyA" `
+    -H "x-role: OPERATOR" `
+    --data "@$eqBodyPath"
+
+  if ($status -ne "201" -and $status -ne "409") {
+    Write-Host "[FAIL] OPERATOR 설비 등록 실패. 기대=201 또는 409, 실제=$status" -ForegroundColor Red
+    Write-Host "응답 본문:" -ForegroundColor Yellow
+    Get-Content $respFile | Write-Host
+    exit 1
+  }
+
+  if ($status -eq "201") {
+    Write-Host "[PASS] OPERATOR 설비 등록 성공(201)" -ForegroundColor Green
+  } else {
+    Write-Host "[PASS] OPERATOR 설비 등록 중복(409) - 허용 처리" -ForegroundColor Green
+  }
+}
+finally {
+  if (Test-Path $eqBodyPath) { Remove-Item $eqBodyPath -Force -ErrorAction SilentlyContinue }
+}
+
+# VIEWER 차단: 403 확인
+$tsEq2 = Get-Date -Format "yyyyMMddHHmmss"
+$eqCode2 = "EQ-VIEWER-$tsEq2"
+$eqBodyPath2 = Join-Path $env:TEMP "smoke_equipment_viewer_$tsEq2.json"
+
+@"
+{
+  "name": "뷰어차단설비-$tsEq2",
+  "code": "$eqCode2",
+  "processId": null,
+  "commType": "HTTP",
+  "commConfig": { "url": "http://device.local/api" },
+  "isActive": 1
+}
+"@ | Out-File -FilePath $eqBodyPath2 -Encoding utf8
+
+try {
+  $respFile2 = Join-Path $env:TEMP "smoke_equipment_viewer_resp_$tsEq2.json"
+
+  $status2 = & curl.exe -s -o $respFile2 -w "%{http_code}" `
+    -X POST "$baseUrl/api/v1/equipments" `
+    -H "Content-Type: application/json" `
+    -H "x-company-id: $companyA" `
+    -H "x-role: VIEWER" `
+    --data "@$eqBodyPath2"
+
+  if ($status2 -ne "403") {
+    Write-Host "[FAIL] VIEWER 설비 등록 차단 실패. 기대=403, 실제=$status2" -ForegroundColor Red
+    Write-Host "응답 본문:" -ForegroundColor Yellow
+    Get-Content $respFile2 | Write-Host
+    exit 1
+  }
+
+  Write-Host "[PASS] VIEWER 설비 등록 차단(403) 확인" -ForegroundColor Green
+}
+finally {
+  if (Test-Path $eqBodyPath2) { Remove-Item $eqBodyPath2 -Force -ErrorAction SilentlyContinue }
+}
+
+Write-Host "[PASS] Ticket-05 Equipments 스모크 완료" -ForegroundColor Green
