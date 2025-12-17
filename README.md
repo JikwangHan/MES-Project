@@ -107,14 +107,43 @@ curl -X GET http://localhost:4000/api/v1/item-categories ^
 ### 5-3) 감사 로그(audit_logs) 확인 (옵션)
 `data/mes.db`는 SQLite 파일입니다. `DB Browser for SQLite` 같은 무료 툴로 열어서 `audit_logs` 테이블을 보면 누가(역할), 어떤 엔티티를, 언제 만들었는지 확인 가능합니다.
 
-## 6) 자주 쓰는 Git 명령 (초보자용)
+## 6) Ticket-02 품목(Item) 등록/조회 API 실행하기
+Ticket-01과 같은 패턴으로 바로 테스트할 수 있습니다.
+
+1. 서버 실행  
+   ```bash
+   npm start
+   ```
+2. 등록 성공 (OPERATOR, 회사 A, 카테고리 id=1 사용 예시)  
+   ```bash
+   curl.exe -X POST "http://localhost:4000/api/v1/items" ^
+     -H "Content-Type: application/json" ^
+     -H "x-company-id: COMPANY-A" ^
+     -H "x-role: OPERATOR" ^
+     -d "{\"categoryId\":1,\"name\":\"라면\",\"code\":\"ITEM-001\"}"
+   ```
+   - 같은 회사(`x-company-id`)에서 `code`가 중복되면 409가 반환됩니다.
+3. 조회 (VIEWER도 가능)  
+   ```bash
+   curl.exe -X GET "http://localhost:4000/api/v1/items" ^
+     -H "x-company-id: COMPANY-A" ^
+     -H "x-role: VIEWER"
+   ```
+4. 실패 케이스 예시  
+   - `x-role: VIEWER`로 POST → 403  
+   - 다른 회사의 categoryId 사용 → 403  
+   - 존재하지 않는 categoryId → 400  
+5. 감사 로그 확인  
+   - `data/mes.db`의 `audit_logs`에서 성공(`CREATE`)과 실패(`CREATE_FAIL`) 기록을 확인할 수 있습니다.
+
+## 7) 자주 쓰는 Git 명령 (초보자용)
 - 변경 사항 확인: `git status`
 - 파일 추가/갱신 상태 확인: `git status -sb` (요약)
 - 새 파일 스테이징: `git add 파일명`
 - 커밋 만들기: `git commit -m "메시지"`
 - GitHub로 올리기: `git push origin main` (처음 푸시하는 경우 브랜치 이름을 확인하세요. 기본은 `main`)
 
-## 7) 다음 단계 제안
+## 8) 다음 단계 제안
 - 프로젝트 목표와 요구사항을 정리한 문서 추가 (예: `docs/requirements.md`)
 - 백엔드/프론트엔드 선택 후 폴더 구조 잡기 (예: `backend/`, `frontend/`)
 - 테스트 자동화 도입 (예: Jest, Vitest, Pytest 등 스택에 맞춰 선택)
