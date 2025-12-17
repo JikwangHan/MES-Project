@@ -41,16 +41,17 @@ router.post('/', ensureNotViewer, (req, res) => {
       .json(fail('CATEGORY_NOT_FOUND', 'categoryId가 존재하지 않습니다.'));
   }
   if (categoryRow.company_id !== companyId) {
+    // 회사가 다른 categoryId는 "잘못된 입력"으로 동일하게 처리(정보 노출 방지)
     insertAuditLog({
       companyId,
       actorRole: role,
       action: 'CREATE_FAIL',
       entity: 'items',
-      payload: { categoryId, name, code, reason: 'CATEGORY_FORBIDDEN' },
+      payload: { categoryId, name, code, reason: 'CATEGORY_NOT_FOUND' },
     });
     return res
-      .status(403)
-      .json(fail('FORBIDDEN', '다른 회사의 품목유형을 사용할 수 없습니다.'));
+      .status(400)
+      .json(fail('CATEGORY_NOT_FOUND', 'categoryId가 존재하지 않습니다.'));
   }
 
   try {
