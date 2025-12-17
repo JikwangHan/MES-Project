@@ -4,6 +4,7 @@ const tenantMiddleware = require('./middleware/tenant');
 const { attachRole } = require('./middleware/auth');
 const itemCategoryRoutes = require('./routes/itemCategories');
 const itemRoutes = require('./routes/items');
+const itemBomRoutes = require('./routes/itemBoms');
 const { ok, fail } = require('./utils/response');
 
 const app = express();
@@ -20,6 +21,7 @@ app.use(attachRole);
 // 라우트
 app.use('/api/v1/item-categories', itemCategoryRoutes);
 app.use('/api/v1/items', itemRoutes);
+app.use('/api/v1/items/:itemId/parts', itemBomRoutes);
 
 app.get('/health', (_req, res) => res.json(ok({ status: 'ok' })));
 

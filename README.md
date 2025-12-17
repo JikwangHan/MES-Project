@@ -136,14 +136,46 @@ Ticket-01과 같은 패턴으로 바로 테스트할 수 있습니다.
 5. 감사 로그 확인  
    - `data/mes.db`의 `audit_logs`에서 성공(`CREATE`)과 실패(`CREATE_FAIL`) 기록을 확인할 수 있습니다.
 
-## 7) 자주 쓰는 Git 명령 (초보자용)
+## 7) Ticket-03 PL/BOM API 실행하기
+완제품(itemId)에 자재(childItemId)와 수량/단위를 연결하는 API입니다.
+
+1. BOM 추가 (OPERATOR, 회사 A, 완제품 id=1, 자재 id=2 예시)  
+   ```powershell
+   curl.exe -X POST "http://localhost:4000/api/v1/items/1/parts" ^
+     -H "Content-Type: application/json" ^
+     -H "x-company-id: COMPANY-A" ^
+     -H "x-role: OPERATOR" ^
+     -d "{\"childItemId\":2,\"qty\":1.5,\"unit\":\"EA\"}"
+   ```
+   - 규칙: `qty`는 0보다 커야 합니다. 부모/자식이 같으면 400, 중복 연결이면 409.
+2. BOM 조회 (VIEWER도 가능)  
+   ```powershell
+   curl.exe -X GET "http://localhost:4000/api/v1/items/1/parts" ^
+     -H "x-company-id: COMPANY-A" ^
+     -H "x-role: VIEWER"
+   ```
+3. 삭제 (필요 시, OPERATOR)  
+   ```powershell
+   curl.exe -X DELETE "http://localhost:4000/api/v1/items/1/parts/파트ID" ^
+     -H "x-company-id: COMPANY-A" ^
+     -H "x-role: OPERATOR"
+   ```
+4. 실패 케이스 예시  
+   - VIEWER로 추가 → 403  
+   - parent/child가 동일 → 400(BOM_SELF_REFERENCE)  
+   - 같은 parent+child 중복 → 409(BOM_DUPLICATE)  
+   - 다른 회사의 itemId/childItemId 사용 → 400(ITEM_NOT_FOUND로 통일)  
+5. 감사 로그 확인  
+   - `audit_logs`에서 `entity=item_boms`의 CREATE/DELETE/FAIL 기록을 확인할 수 있습니다.
+
+## 8) 자주 쓰는 Git 명령 (초보자용)
 - 변경 사항 확인: `git status`
 - 파일 추가/갱신 상태 확인: `git status -sb` (요약)
 - 새 파일 스테이징: `git add 파일명`
 - 커밋 만들기: `git commit -m "메시지"`
 - GitHub로 올리기: `git push origin main` (처음 푸시하는 경우 브랜치 이름을 확인하세요. 기본은 `main`)
 
-## 8) 다음 단계 제안
+## 9) 다음 단계 제안
 - 프로젝트 목표와 요구사항을 정리한 문서 추가 (예: `docs/requirements.md`)
 - 백엔드/프론트엔드 선택 후 폴더 구조 잡기 (예: `backend/`, `frontend/`)
 - 테스트 자동화 도입 (예: Jest, Vitest, Pytest 등 스택에 맞춰 선택)
