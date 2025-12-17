@@ -88,3 +88,91 @@ $failResp = curl.exe -s -X POST "$baseUrl/api/v1/items/$parentId/parts" `
 Assert-FailJson $failResp
 
 Write-Host "[PASS] 스모크 테스트 완료" -ForegroundColor Green
+
+# -----------------------------
+# Ticket-04 Smoke: Processes
+# -----------------------------
+Write-Host "`n[SMOKE] Ticket-04 Processes 시작" -ForegroundColor Cyan
+
+$baseUrl = "http://localhost:4000"
+$companyA = "COMPANY-A"
+
+# 1) OPERATOR로 공정 등록(201) 또는 중복(409)이면 PASS 처리
+$ts = Get-Date -Format "yyyyMMddHHmmss"
+$procCode = "PROC-$ts"
+$procBodyPath = Join-Path $env:TEMP "smoke_process_$ts.json"
+
+@"
+{
+  "name": "포장공정-$ts",
+  "code": "$procCode",
+  "parentId": null,
+  "sortOrder": 0
+}
+"@ | Out-File -FilePath $procBodyPath -Encoding utf8
+
+try {
+  $respFile = Join-Path $env:TEMP "smoke_process_resp_$ts.json"
+
+  $status = & curl.exe -s -o $respFile -w "%{http_code}" `
+    -X POST "$baseUrl/api/v1/processes" `
+    -H "Content-Type: application/json" `
+    -H "x-company-id: $companyA" `
+    -H "x-role: OPERATOR" `
+    --data "@$procBodyPath"
+
+  if ($status -ne "201" -and $status -ne "409") {
+    Write-Host "[FAIL] OPERATOR 공정 등록 실패. 기대=201 또는 409, 실제=$status" -ForegroundColor Red
+    Write-Host "응답 본문:" -ForegroundColor Yellow
+    Get-Content $respFile | Write-Host
+    exit 1
+  }
+
+  if ($status -eq "201") {
+    Write-Host "[PASS] OPERATOR 공정 등록 성공(201)" -ForegroundColor Green
+  } else {
+    Write-Host "[PASS] OPERATOR 공정 등록 중복(409) - 허용 처리" -ForegroundColor Green
+  }
+}
+finally {
+  if (Test-Path $procBodyPath) { Remove-Item $procBodyPath -Force -ErrorAction SilentlyContinue }
+}
+
+# 2) VIEWER로 공정 등록 시 403 확인(본문은 보지 않고 코드만 확인)
+$ts2 = Get-Date -Format "yyyyMMddHHmmss"
+$procCode2 = "PROC-VIEWER-$ts2"
+$procBodyPath2 = Join-Path $env:TEMP "smoke_process_viewer_$ts2.json"
+
+@"
+{
+  "name": "뷰어차단테스트-$ts2",
+  "code": "$procCode2",
+  "parentId": null,
+  "sortOrder": 0
+}
+"@ | Out-File -FilePath $procBodyPath2 -Encoding utf8
+
+try {
+  $respFile2 = Join-Path $env:TEMP "smoke_process_viewer_resp_$ts2.json"
+
+  $status2 = & curl.exe -s -o $respFile2 -w "%{http_code}" `
+    -X POST "$baseUrl/api/v1/processes" `
+    -H "Content-Type: application/json" `
+    -H "x-company-id: $companyA" `
+    -H "x-role: VIEWER" `
+    --data "@$procBodyPath2"
+
+  if ($status2 -ne "403") {
+    Write-Host "[FAIL] VIEWER 공정 등록 차단 실패. 기대=403, 실제=$status2" -ForegroundColor Red
+    Write-Host "응답 본문:" -ForegroundColor Yellow
+    Get-Content $respFile2 | Write-Host
+    exit 1
+  }
+
+  Write-Host "[PASS] VIEWER 공정 등록 차단(403) 확인" -ForegroundColor Green
+}
+finally {
+  if (Test-Path $procBodyPath2) { Remove-Item $procBodyPath2 -Force -ErrorAction SilentlyContinue }
+}
+
+Write-Host "[PASS] Ticket-04 Processes 스모크 완료" -ForegroundColor Green

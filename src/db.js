@@ -59,6 +59,23 @@ const init = () => {
     );
   `);
 
+  // 기준정보: 공정
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS processes (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      company_id TEXT NOT NULL,
+      name TEXT NOT NULL,
+      code TEXT NOT NULL,
+      parent_id INTEGER,
+      sort_order INTEGER DEFAULT 0,
+      created_by_role TEXT,
+      created_at TEXT DEFAULT (datetime('now')),
+      updated_at TEXT DEFAULT (datetime('now')),
+      FOREIGN KEY (parent_id) REFERENCES processes(id),
+      CONSTRAINT uniq_company_process UNIQUE (company_id, code)
+    );
+  `);
+
   // 감사 로그
   db.exec(`
     CREATE TABLE IF NOT EXISTS audit_logs (

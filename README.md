@@ -168,16 +168,41 @@ Ticket-01과 같은 패턴으로 바로 테스트할 수 있습니다.
 5. 감사 로그 확인  
    - `audit_logs`에서 `entity=item_boms`의 CREATE/DELETE/FAIL 기록을 확인할 수 있습니다.
 
-## 8) 자주 쓰는 Git 명령 (초보자용)
-- 변경 사항 확인: `git status`
-- 파일 추가/갱신 상태 확인: `git status -sb` (요약)
-- 새 파일 스테이징: `git add 파일명`
-- 커밋 만들기: `git commit -m "메시지"`
-- GitHub로 올리기: `git push origin main` (처음 푸시하는 경우 브랜치 이름을 확인하세요. 기본은 `main`)
+## 8) Ticket-04 공정(Process) API 실행하기
+공정을 상위/하위 구조로 관리합니다. (이번 티켓은 등록/조회만)
 
-## 9) 다음 단계 제안
-- 프로젝트 목표와 요구사항을 정리한 문서 추가 (예: `docs/requirements.md`)
-- 백엔드/프론트엔드 선택 후 폴더 구조 잡기 (예: `backend/`, `frontend/`)
-- 테스트 자동화 도입 (예: Jest, Vitest, Pytest 등 스택에 맞춰 선택)
+1. 공정 등록 (OPERATOR, parent 없이)  
+   ```powershell
+   curl.exe -X POST "http://localhost:4000/api/v1/processes" ^
+     -H "Content-Type: application/json" ^
+     -H "x-company-id: COMPANY-A" ^
+     -H "x-role: OPERATOR" ^
+     -d "{\"name\":\"포장공정\",\"code\":\"PROC-001\",\"parentId\":null,\"sortOrder\":0}"
+   ```
+   - 같은 회사에서 code가 중복이면 409(PROCESS_CODE_DUPLICATE).
+   - parentId가 존재하지 않거나 다른 회사이면 400(PROCESS_PARENT_NOT_FOUND).
+2. 공정 조회 (VIEWER도 가능)  
+   ```powershell
+   curl.exe -X GET "http://localhost:4000/api/v1/processes" ^
+     -H "x-company-id: COMPANY-A" ^
+     -H "x-role: VIEWER"
+   ```
+3. 실패 케이스 예시  
+   - VIEWER로 등록 → 403  
+   - parentId가 없거나 타사 → 400(PROCESS_PARENT_NOT_FOUND)
+4. 감사 로그 확인  
+   - `audit_logs`에서 `entity=processes` CREATE/FAIL 기록 확인 가능.
+
+## 9) 자주 쓰는 Git 명령 (초보자용)
+ - 변경 사항 확인: `git status`
+ - 파일 추가/갱신 상태 확인: `git status -sb` (요약)
+ - 새 파일 스테이징: `git add 파일명`
+ - 커밋 만들기: `git commit -m "메시지"`
+ - GitHub로 올리기: `git push origin main` (처음 푸시하는 경우 브랜치 이름을 확인하세요. 기본은 `main`)
+
+## 10) 다음 단계 제안
+ - 프로젝트 목표와 요구사항을 정리한 문서 추가 (예: `docs/requirements.md`)
+ - 백엔드/프론트엔드 선택 후 폴더 구조 잡기 (예: `backend/`, `frontend/`)
+ - 테스트 자동화 도입 (예: Jest, Vitest, Pytest 등 스택에 맞춰 선택)
 
 필요한 스택이나 세부 구조를 알려주시면, 거기에 맞춘 설정 파일과 예제 코드를 더 추가해드리겠습니다.

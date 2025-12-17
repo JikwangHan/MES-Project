@@ -5,6 +5,7 @@ const { attachRole } = require('./middleware/auth');
 const itemCategoryRoutes = require('./routes/itemCategories');
 const itemRoutes = require('./routes/items');
 const itemBomRoutes = require('./routes/itemBoms');
+const processRoutes = require('./routes/processes');
 const { ok, fail } = require('./utils/response');
 
 const app = express();
@@ -22,6 +23,7 @@ app.use(attachRole);
 app.use('/api/v1/item-categories', itemCategoryRoutes);
 app.use('/api/v1/items', itemRoutes);
 app.use('/api/v1/items/:itemId/parts', itemBomRoutes);
+app.use('/api/v1/processes', processRoutes);
 
 app.get('/health', (_req, res) => res.json(ok({ status: 'ok' })));
 
