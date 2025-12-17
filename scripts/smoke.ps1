@@ -489,3 +489,131 @@ try {
 } finally { Safe-Remove $pathC07 }
 
 Write-Host "[PASS] Ticket-07 Partners 스모크 완료" -ForegroundColor Green
+
+# -----------------------------
+# Ticket-08 Smoke: Telemetry (최소 수신 API)
+# -----------------------------
+Write-Host "`n[SMOKE] Ticket-08 Telemetry 시작" -ForegroundColor Cyan
+
+if (-not $baseUrl)  { $baseUrl  = "http://localhost:4000" }
+if (-not $companyA) { $companyA = "COMPANY-A" }
+$companyB = "COMPANY-B"
+
+$ts08 = Get-Date -Format "yyyyMMddHHmmss"
+
+function _InvokeAndGet {
+  param([string]$Method,[string]$Url,[string]$CompanyId,[string]$Role,[string]$JsonPath)
+  $r = Invoke-CurlJson $Method $Url $CompanyId $Role $JsonPath
+  if ($r -is [hashtable] -and $r.ContainsKey("Status") -and $r.ContainsKey("RespPath")) {
+    return @{ Status = [string]$r.Status; RespPath = [string]$r.RespPath }
+  }
+  if ($r -is [object[]] -and $r.Length -ge 2) {
+    return @{ Status = [string]$r[0]; RespPath = [string]$r[1] }
+  }
+  throw "Invoke-CurlJson 반환 형식을 해석할 수 없습니다."
+}
+
+# ---- COMPANY-A용 공정/설비 생성 ----
+$procCodeA = "PROC-A-T08-$ts08"
+$procBodyA = @"
+{ "name":"T08공정-$ts08", "code":"$procCodeA", "parentId": null, "sortOrder": 0 }
+"@
+$procPathA = New-TempJsonFile "t08_procA_$ts08" $procBodyA
+$processIdA = $null
+try {
+  $resPA = _InvokeAndGet "POST" "$baseUrl/api/v1/processes" $companyA "OPERATOR" $procPathA
+  Assert-Status $resPA.Status @("201") "[T08-SETUP-A] COMPANY-A 공정 생성(201)" $resPA.RespPath
+  $processIdA = Get-JsonId $resPA.RespPath
+} finally { Safe-Remove $procPathA }
+
+$equipCodeA = "EQ-A-T08-$ts08"
+$equipBodyA = @"
+{
+  "name": "T08설비A-$ts08",
+  "code": "$equipCodeA",
+  "processId": $processIdA,
+  "commType": "HTTP",
+  "commConfig": { "url": "http://dummy" },
+  "isActive": 1
+}
+"@
+$equipPathA = New-TempJsonFile "t08_equipA_$ts08" $equipBodyA
+try {
+  $resEA = _InvokeAndGet "POST" "$baseUrl/api/v1/equipments" $companyA "OPERATOR" $equipPathA
+  Assert-Status $resEA.Status @("201","409") "[T08-SETUP-B] COMPANY-A 설비 생성(201/409)" $resEA.RespPath
+} finally { Safe-Remove $equipPathA }
+
+# (A) 정상 Telemetry 수신 201
+$teleBodyOk = @"
+{
+  "equipmentCode": "$equipCodeA",
+  "timestamp": "$(Get-Date -Format o)",
+  "eventType": "STATUS",
+  "payload": { "state": "RUN", "speed": 123 }
+}
+"@
+$telePathOk = New-TempJsonFile "t08_tel_ok_$ts08" $teleBodyOk
+try {
+  $resT1 = _InvokeAndGet "POST" "$baseUrl/api/v1/telemetry/events" $companyA "VIEWER" $telePathOk
+  Assert-Status $resT1.Status @("201") "[T08-A] 정상 수신(201)" $resT1.RespPath
+} finally { Safe-Remove $telePathOk }
+
+# (B) equipmentCode 누락 400
+$teleBodyMissing = @"
+{
+  "timestamp": "$(Get-Date -Format o)",
+  "eventType": "STATUS",
+  "payload": { "state": "RUN" }
+}
+"@
+$telePathMissing = New-TempJsonFile "t08_tel_missing_$ts08" $teleBodyMissing
+try {
+  $resT2 = _InvokeAndGet "POST" "$baseUrl/api/v1/telemetry/events" $companyA "VIEWER" $telePathMissing
+  Assert-Status $resT2.Status @("400") "[T08-B] equipmentCode 누락(400)" $resT2.RespPath
+} finally { Safe-Remove $telePathMissing }
+
+# (C) 타사 equipmentCode 400
+$procCodeB = "PROC-B-T08-$ts08"
+$procBodyB = @"
+{ "name":"T08공정B-$ts08", "code":"$procCodeB", "parentId": null, "sortOrder": 0 }
+"@
+$procPathB = New-TempJsonFile "t08_procB_$ts08" $procBodyB
+$processIdB = $null
+try {
+  $resPB = _InvokeAndGet "POST" "$baseUrl/api/v1/processes" $companyB "OPERATOR" $procPathB
+  Assert-Status $resPB.Status @("201") "[T08-SETUP-C] COMPANY-B 공정 생성(201)" $resPB.RespPath
+  $processIdB = Get-JsonId $resPB.RespPath
+} finally { Safe-Remove $procPathB }
+
+$equipCodeB = "EQ-B-T08-$ts08"
+$equipBodyB = @"
+{
+  "name": "T08설비B-$ts08",
+  "code": "$equipCodeB",
+  "processId": $processIdB,
+  "commType": "HTTP",
+  "commConfig": { "url": "http://dummy" },
+  "isActive": 1
+}
+"@
+$equipPathB = New-TempJsonFile "t08_equipB_$ts08" $equipBodyB
+try {
+  $resEB = _InvokeAndGet "POST" "$baseUrl/api/v1/equipments" $companyB "OPERATOR" $equipPathB
+  Assert-Status $resEB.Status @("201","409") "[T08-SETUP-D] COMPANY-B 설비 생성(201/409)" $resEB.RespPath
+} finally { Safe-Remove $equipPathB }
+
+$teleBodyCross = @"
+{
+  "equipmentCode": "$equipCodeB",
+  "timestamp": "$(Get-Date -Format o)",
+  "eventType": "STATUS",
+  "payload": { "state": "RUN" }
+}
+"@
+$telePathCross = New-TempJsonFile "t08_tel_cross_$ts08" $teleBodyCross
+try {
+  $resT3 = _InvokeAndGet "POST" "$baseUrl/api/v1/telemetry/events" $companyA "VIEWER" $telePathCross
+  Assert-Status $resT3.Status @("400") "[T08-C] 타사 equipmentCode 차단(400)" $resT3.RespPath
+} finally { Safe-Remove $telePathCross }
+
+Write-Host "[PASS] Ticket-08 Telemetry 스모크 완료" -ForegroundColor Green

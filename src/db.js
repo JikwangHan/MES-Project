@@ -146,6 +146,31 @@ const init = () => {
       created_at TEXT DEFAULT (datetime('now'))
     );
   `);
+
+  // 텔레메트리 이벤트
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS telemetry_events (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      company_id TEXT NOT NULL,
+      equipment_id INTEGER NOT NULL,
+      equipment_code TEXT NOT NULL,
+      event_type TEXT NOT NULL,
+      event_ts TEXT NOT NULL,
+      payload_json TEXT NOT NULL,
+      received_at TEXT NOT NULL,
+      FOREIGN KEY (equipment_id) REFERENCES equipments(id)
+    );
+  `);
+
+  db.exec(`
+    CREATE INDEX IF NOT EXISTS idx_telemetry_company_ts
+    ON telemetry_events (company_id, event_ts);
+  `);
+
+  db.exec(`
+    CREATE INDEX IF NOT EXISTS idx_telemetry_company_equipment
+    ON telemetry_events (company_id, equipment_id);
+  `);
 };
 
 const insertAuditLog = ({ companyId, actorRole, action, entity, entityId, payload }) => {

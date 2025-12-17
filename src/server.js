@@ -9,6 +9,7 @@ const processRoutes = require('./routes/processes');
 const equipmentRoutes = require('./routes/equipments');
 const defectTypeRoutes = require('./routes/defectTypes');
 const partnerRoutes = require('./routes/partners');
+const telemetryRoutes = require('./routes/telemetry');
 const { ok, fail } = require('./utils/response');
 
 const app = express();
@@ -30,6 +31,7 @@ app.use('/api/v1/processes', processRoutes);
 app.use('/api/v1/equipments', equipmentRoutes);
 app.use('/api/v1/defect-types', defectTypeRoutes);
 app.use('/api/v1/partners', partnerRoutes);
+app.use('/api/v1/telemetry', telemetryRoutes);
 
 app.get('/health', (_req, res) => res.json(ok({ status: 'ok' })));
 

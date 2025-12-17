@@ -268,14 +268,40 @@ Ticket-01과 같은 패턴으로 바로 테스트할 수 있습니다.
 4. 감사 로그 확인  
    - `audit_logs`에서 `entity=partners` CREATE/FAIL 기록 확인 가능.
 
-## 12) 자주 쓰는 Git 명령 (초보자용)
+## 12) Ticket-08 Telemetry(최소 수신) API 실행하기
+장비/게이트웨이가 이벤트를 업로드하는 최소 API입니다.
+
+1. 이벤트 수신 (equipmentCode 필수)  
+   ```powershell
+   curl.exe -X POST "http://localhost:4000/api/v1/telemetry/events" ^
+     -H "Content-Type: application/json" ^
+     -H "x-company-id: COMPANY-A" ^
+     -H "x-role: VIEWER" ^  # 이번 티켓에서는 VIEWER도 허용(장비 수신 목적)
+     -d "{\"equipmentCode\":\"EQ-001\",\"timestamp\":\"2025-12-17T12:00:00+09:00\",\"eventType\":\"STATUS\",\"payload\":{\"state\":\"RUN\",\"speed\":120}}"
+   ```
+   - equipmentCode 없으면 400(TELEMETRY_EQUIPMENT_CODE_REQUIRED)
+   - 해당 회사 설비 코드가 아니면 400(TELEMETRY_EQUIPMENT_NOT_FOUND)
+2. 이벤트 조회 (VIEWER 허용)  
+   ```powershell
+   curl.exe -X GET "http://localhost:4000/api/v1/telemetry/events?limit=20" ^
+     -H "x-company-id: COMPANY-A" ^
+     -H "x-role: VIEWER"
+   ```
+3. 실패 케이스 예시  
+   - equipmentCode 누락 → 400  
+   - 타사/없는 equipmentCode → 400  
+   - limit가 숫자 아님/0/200 초과 → 400(TELEMETRY_LIMIT_INVALID)
+4. 감사 로그 확인  
+   - `audit_logs`에서 `entity=telemetry_events` CREATE/FAIL 기록 확인 가능.
+
+## 13) 자주 쓰는 Git 명령 (초보자용)
  - 변경 사항 확인: `git status`
  - 파일 추가/갱신 상태 확인: `git status -sb` (요약)
  - 새 파일 스테이징: `git add 파일명`
  - 커밋 만들기: `git commit -m "메시지"`
  - GitHub로 올리기: `git push origin main` (처음 푸시하는 경우 브랜치 이름을 확인하세요. 기본은 `main`)
 
-## 13) 다음 단계 제안
+## 14) 다음 단계 제안
  - 프로젝트 목표와 요구사항을 정리한 문서 추가 (예: `docs/requirements.md`)
  - 백엔드/프론트엔드 선택 후 폴더 구조 잡기 (예: `backend/`, `frontend/`)
  - 테스트 자동화 도입 (예: Jest, Vitest, Pytest 등 스택에 맞춰 선택)
