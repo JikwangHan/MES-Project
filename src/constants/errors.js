@@ -14,5 +14,7 @@ module.exports = {
   EQUIPMENT_PROCESS_NOT_FOUND: { code: 'EQUIPMENT_PROCESS_NOT_FOUND', message: 'process_id가 존재하지 않습니다.' },
   DEFECT_CODE_DUPLICATE: { code: 'DEFECT_CODE_DUPLICATE', message: '동일 불량 코드가 이미 존재합니다.' },
   DEFECT_PROCESS_NOT_FOUND: { code: 'DEFECT_PROCESS_NOT_FOUND', message: 'process_id가 존재하지 않습니다.' },
+  PARTNER_CODE_DUPLICATE: { code: 'PARTNER_CODE_DUPLICATE', message: '동일 거래처 코드가 이미 존재합니다.' },
+  PARTNER_TYPE_INVALID: { code: 'PARTNER_TYPE_INVALID', message: 'type 값이 올바르지 않습니다.' },
   SERVER_ERROR: { code: 'SERVER_ERROR', message: '서버 오류가 발생했습니다.' },
 };

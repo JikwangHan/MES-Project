@@ -243,14 +243,39 @@ Ticket-01과 같은 패턴으로 바로 테스트할 수 있습니다.
 4. 감사 로그 확인  
    - `audit_logs`에서 `entity=defect_types` CREATE/FAIL 기록 확인 가능.
 
-## 11) 자주 쓰는 Git 명령 (초보자용)
+## 11) Ticket-07 거래처(Partners) API 실행하기
+거래처를 등록/조회합니다. 이번 티켓은 삭제 제외.
+
+1. 거래처 등록 (OPERATOR)  
+   ```powershell
+   curl.exe -X POST "http://localhost:4000/api/v1/partners" ^
+     -H "Content-Type: application/json" ^
+     -H "x-company-id: COMPANY-A" ^
+     -H "x-role: OPERATOR" ^
+     -d "{\"name\":\"ABC 상사\",\"code\":\"PART-001\",\"type\":\"CUSTOMER\",\"isActive\":1}"
+   ```
+   - 같은 회사에서 code 중복 → 409(PARTNER_CODE_DUPLICATE)
+   - type이 CUSTOMER/VENDOR/BOTH가 아니면 400(PARTNER_TYPE_INVALID)
+2. 거래처 조회 (VIEWER도 가능)  
+   ```powershell
+   curl.exe -X GET "http://localhost:4000/api/v1/partners" ^
+     -H "x-company-id: COMPANY-A" ^
+     -H "x-role: VIEWER"
+   ```
+3. 실패 케이스 예시  
+   - VIEWER로 등록 → 403  
+   - 잘못된 type → 400(PARTNER_TYPE_INVALID)
+4. 감사 로그 확인  
+   - `audit_logs`에서 `entity=partners` CREATE/FAIL 기록 확인 가능.
+
+## 12) 자주 쓰는 Git 명령 (초보자용)
  - 변경 사항 확인: `git status`
  - 파일 추가/갱신 상태 확인: `git status -sb` (요약)
  - 새 파일 스테이징: `git add 파일명`
  - 커밋 만들기: `git commit -m "메시지"`
  - GitHub로 올리기: `git push origin main` (처음 푸시하는 경우 브랜치 이름을 확인하세요. 기본은 `main`)
 
-## 12) 다음 단계 제안
+## 13) 다음 단계 제안
  - 프로젝트 목표와 요구사항을 정리한 문서 추가 (예: `docs/requirements.md`)
  - 백엔드/프론트엔드 선택 후 폴더 구조 잡기 (예: `backend/`, `frontend/`)
  - 테스트 자동화 도입 (예: Jest, Vitest, Pytest 등 스택에 맞춰 선택)

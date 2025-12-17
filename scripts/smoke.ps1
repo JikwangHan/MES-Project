@@ -407,3 +407,85 @@ Safe-Remove $defBodyD
 Safe-Remove $respD.RespPath
 
 Write-Host "[PASS] Ticket-06 Defect Types 스모크 완료" -ForegroundColor Green
+
+# -----------------------------
+# Ticket-07 Smoke: Partners (거래처)
+# -----------------------------
+Write-Host "`n[SMOKE] Ticket-07 Partners 시작" -ForegroundColor Cyan
+
+if (-not $baseUrl)  { $baseUrl  = "http://localhost:4000" }
+if (-not $companyA) { $companyA = "COMPANY-A" }
+
+$ts07 = Get-Date -Format "yyyyMMddHHmmss"
+
+function _InvokeAndGet {
+  param(
+    [string]$Method,
+    [string]$Url,
+    [string]$CompanyId,
+    [string]$Role,
+    [string]$JsonPath
+  )
+  $r = Invoke-CurlJson $Method $Url $CompanyId $Role $JsonPath
+  if ($r -is [hashtable] -and $r.ContainsKey("Status") -and $r.ContainsKey("RespPath")) {
+    return @{ Status = [string]$r.Status; RespPath = [string]$r.RespPath }
+  }
+  if ($r -is [object[]] -and $r.Length -ge 2) {
+    return @{ Status = [string]$r[0]; RespPath = [string]$r[1] }
+  }
+  throw "Invoke-CurlJson 반환 형식을 해석할 수 없습니다."
+}
+
+# (A) OPERATOR 등록: 201 또는 409 허용
+$codeA07 = "PART-$ts07"
+$jsonA07 = @"
+{
+  "name": "거래처-$ts07",
+  "code": "$codeA07",
+  "type": "CUSTOMER",
+  "contactName": "담당자-$ts07",
+  "phone": "010-0000-0000",
+  "email": "partner-$ts07@example.com",
+  "address": "Seoul",
+  "isActive": 1
+}
+"@
+$pathA07 = New-TempJsonFile "t07_partner_ok_$ts07" $jsonA07
+try {
+  $resA07 = _InvokeAndGet "POST" "$baseUrl/api/v1/partners" $companyA "OPERATOR" $pathA07
+  Assert-Status $resA07.Status @("201","409") "[T07-A] OPERATOR 등록(201/409)" $resA07.RespPath
+} finally { Safe-Remove $pathA07 }
+
+# (B) VIEWER 등록 차단: 403
+$codeB07 = "PART-VIEWER-$ts07"
+$jsonB07 = @"
+{
+  "name": "뷰어차단거래처-$ts07",
+  "code": "$codeB07",
+  "type": "VENDOR",
+  "isActive": 1
+}
+"@
+$pathB07 = New-TempJsonFile "t07_partner_viewer_$ts07" $jsonB07
+try {
+  $resB07 = _InvokeAndGet "POST" "$baseUrl/api/v1/partners" $companyA "VIEWER" $pathB07
+  Assert-Status $resB07.Status @("403") "[T07-B] VIEWER 차단(403)" $resB07.RespPath
+} finally { Safe-Remove $pathB07 }
+
+# (C) 잘못된 type: 400
+$codeC07 = "PART-BADTYPE-$ts07"
+$jsonC07 = @"
+{
+  "name": "타입오류거래처-$ts07",
+  "code": "$codeC07",
+  "type": "UNKNOWN_TYPE",
+  "isActive": 1
+}
+"@
+$pathC07 = New-TempJsonFile "t07_partner_badtype_$ts07" $jsonC07
+try {
+  $resC07 = _InvokeAndGet "POST" "$baseUrl/api/v1/partners" $companyA "OPERATOR" $pathC07
+  Assert-Status $resC07.Status @("400") "[T07-C] 잘못된 type(400)" $resC07.RespPath
+} finally { Safe-Remove $pathC07 }
+
+Write-Host "[PASS] Ticket-07 Partners 스모크 완료" -ForegroundColor Green
