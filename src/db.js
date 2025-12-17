@@ -25,6 +25,22 @@ const init = () => {
     );
   `);
 
+  // 기준정보: 품목
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS items (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      company_id TEXT NOT NULL,
+      category_id INTEGER NOT NULL,
+      name TEXT NOT NULL,
+      code TEXT NOT NULL,
+      created_by_role TEXT,
+      created_at TEXT DEFAULT (datetime('now')),
+      updated_at TEXT DEFAULT (datetime('now')),
+      FOREIGN KEY (category_id) REFERENCES item_categories(id),
+      CONSTRAINT uniq_company_code_item UNIQUE (company_id, code)
+    );
+  `);
+
   // 감사 로그
   db.exec(`
     CREATE TABLE IF NOT EXISTS audit_logs (
