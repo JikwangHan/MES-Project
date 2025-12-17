@@ -1,0 +1,14 @@
+// 공통 오류 코드/메시지 상수
+module.exports = {
+  VALIDATION_ERROR: { code: 'VALIDATION_ERROR', message: '입력 값이 올바르지 않습니다.' },
+  NOT_FOUND: { code: 'NOT_FOUND', message: '요청한 데이터가 없습니다.' },
+  CATEGORY_NOT_FOUND: { code: 'CATEGORY_NOT_FOUND', message: 'categoryId가 존재하지 않습니다.' },
+  ITEM_NOT_FOUND: { code: 'ITEM_NOT_FOUND', message: 'itemId가 존재하지 않습니다.' },
+  FORBIDDEN: { code: 'FORBIDDEN', message: '권한이 없습니다.' },
+  DUPLICATE_CODE: { code: 'DUPLICATE_CODE', message: '동일 코드가 이미 존재합니다.' },
+  BOM_DUPLICATE: { code: 'BOM_DUPLICATE', message: '이미 동일한 BOM이 존재합니다.' },
+  BOM_SELF_REFERENCE: { code: 'BOM_SELF_REFERENCE', message: '완제품과 자재가 동일할 수 없습니다.' },
+  PROCESS_CODE_DUPLICATE: { code: 'PROCESS_CODE_DUPLICATE', message: '동일 공정 코드가 이미 존재합니다.' },
+  PROCESS_PARENT_NOT_FOUND: { code: 'PROCESS_PARENT_NOT_FOUND', message: 'parent_id가 존재하지 않습니다.' },
+  SERVER_ERROR: { code: 'SERVER_ERROR', message: '서버 오류가 발생했습니다.' },
+};
