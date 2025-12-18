@@ -8,6 +8,7 @@ const {
   hmacSha256Hex,
   timingSafeEqualHex,
 } = require('../utils/crypto');
+const { stableStringify } = require('../utils/canonicalJson');
 
 const router = express.Router();
 
@@ -38,8 +39,14 @@ const getHeader = (req, name) => {
   return typeof v === 'string' ? v.trim() : v;
 };
 
-const getRawBody = (req) =>
-  req.rawBody ? req.rawBody.toString('utf8') : JSON.stringify(req.body || {});
+const getCanonicalBody = (req) => {
+  const canonicalHeader = String(getHeader(req, 'x-canonical') || '').toLowerCase();
+  if (canonicalHeader === 'legacy-json') {
+    return JSON.stringify(req.body || {});
+  }
+  // 기본값: stable-json
+  return stableStringify(req.body || {});
+};
 
 const parseAuthHeaders = (req) => {
   const deviceKeyId = getHeader(req, 'x-device-key');
@@ -169,8 +176,14 @@ router.post('/events', (req, res) => {
       }
     }
 
-    const rawBody = getRawBody(req);
-    const canonicalBody = JSON.stringify(req.body || {});
+    const canonicalHeader = String(getHeader(req, 'x-canonical') || '').toLowerCase();
+    const canonicalBody = getCanonicalBody(req);
+    if (DEBUG && canonicalHeader === 'stable-json') {
+      console.log('[telemetry-auth][stable-json]', {
+        bodyHash: sha256Hex(canonicalBody),
+        canonical: canonicalBody,
+      });
+    }
 
     const sigCheck = verifySignatureOrFail({
       companyId,

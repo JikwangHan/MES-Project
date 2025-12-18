@@ -77,6 +77,41 @@ function HmacSha256Hex($secret, $canonical) {
   ($h.ComputeHash($msgBytes) | ForEach-Object { $_.ToString("x2") }) -join ""
 }
 
+function ConvertTo-StableJson {
+  param([Parameter(Mandatory=$true)][object]$Obj)
+
+  function Normalize($v) {
+    if ($null -eq $v) { return $null }
+
+    if ($v -is [hashtable] -or $v.PSObject.TypeNames[0] -eq 'System.Management.Automation.PSCustomObject') {
+      $ht = @{}
+      $props = @()
+      if ($v -is [hashtable]) { $props = $v.Keys } else { $props = $v.PSObject.Properties.Name }
+      foreach ($k in ($props | Sort-Object)) {
+        $val = if ($v -is [hashtable]) { $v[$k] } else { $v.$k }
+        $ht[$k] = Normalize $val
+      }
+      return $ht
+    }
+
+    if ($v -is [System.Collections.IEnumerable] -and -not ($v -is [string])) {
+      $arr = @()
+      foreach ($x in $v) { $arr += ,(Normalize $x) }
+      return $arr
+    }
+
+    return $v
+  }
+
+  $n = Normalize $Obj
+  return ($n | ConvertTo-Json -Depth 50 -Compress)
+}
+
+function Get-LegacyCanonicalFromFile {
+  param([string]$Path)
+  return (node -e "const fs=require('fs'); const data=JSON.parse(fs.readFileSync(process.argv[1],'utf8')); process.stdout.write(JSON.stringify(data));" $Path).Trim()
+}
+
 $baseUrl = "http://localhost:4000"
 $company = "SMOKE-CO"
 $roleOp = "OPERATOR"
@@ -584,9 +619,9 @@ $issueJsonA = Get-Content $resIssueA.RespPath -Raw | ConvertFrom-Json
 $deviceKeyIdA = $issueJsonA.data.deviceKeyId
 $deviceSecretA = $issueJsonA.data.deviceSecret
 
-function BuildTeleHeadersT08($bodyRaw) {
-  $bodyObj = $bodyRaw | ConvertFrom-Json
-  $bodyCanonical = $bodyObj | ConvertTo-Json -Compress -Depth 6
+function BuildTeleHeadersT08($bodyPath) {
+  $bodyRaw = Get-Content $bodyPath -Raw
+  $bodyCanonical = Get-LegacyCanonicalFromFile $bodyPath
   $nonce = ([Guid]::NewGuid().ToString("N"))
   $tsNow = [int][DateTimeOffset]::UtcNow.ToUnixTimeSeconds()
   $bodyHash = Sha256Hex $bodyCanonical
@@ -601,6 +636,7 @@ function BuildTeleHeadersT08($bodyRaw) {
     "x-ts" = "$tsNow"
     "x-nonce" = $nonce
     "x-signature" = $sig
+    "x-canonical" = "legacy-json"
   }
 }
 
@@ -615,13 +651,11 @@ $teleBodyOk = @"
 "@
 $telePathOk = New-TempJsonFile "t08_tel_ok_$ts08" $teleBodyOk
 $rawOk = Get-Content $telePathOk -Raw
-$rawOk | ForEach-Object {
-  if ($env:SMOKE_DEBUG_TELEMETRY -eq "1") {
-    Write-Host "[DEBUG][T08] client raw body:" -ForegroundColor Yellow
-    Write-Host $_ -ForegroundColor Yellow
-  }
+if ($env:SMOKE_DEBUG_TELEMETRY -eq "1") {
+  Write-Host "[DEBUG][T08] client raw body:" -ForegroundColor Yellow
+  Write-Host $rawOk -ForegroundColor Yellow
 }
-$headersOk = BuildTeleHeadersT08 $rawOk
+$headersOk = BuildTeleHeadersT08 $telePathOk
 try {
   $resT1 = _InvokeAndGet "POST" "$baseUrl/api/v1/telemetry/events" $companyA "VIEWER" $telePathOk $headersOk
   Assert-Status $resT1.Status @("201") "[T08-A] 정상 수신(201)" $resT1.RespPath
@@ -636,8 +670,7 @@ $teleBodyMissing = @"
 }
 "@
 $telePathMissing = New-TempJsonFile "t08_tel_missing_$ts08" $teleBodyMissing
-$rawMissing = Get-Content $telePathMissing -Raw
-$headersMissing = BuildTeleHeadersT08 $rawMissing
+$headersMissing = BuildTeleHeadersT08 $telePathMissing
 try {
   $resT2 = _InvokeAndGet "POST" "$baseUrl/api/v1/telemetry/events" $companyA "VIEWER" $telePathMissing $headersMissing
   Assert-Status $resT2.Status @("400") "[T08-B] equipmentCode 누락(400)" $resT2.RespPath
@@ -682,8 +715,7 @@ $teleBodyCross = @"
 }
 "@
 $telePathCross = New-TempJsonFile "t08_tel_cross_$ts08" $teleBodyCross
-$rawCross = Get-Content $telePathCross -Raw
-$headersCross = BuildTeleHeadersT08 $rawCross
+$headersCross = BuildTeleHeadersT08 $telePathCross
 try {
   $resT3 = _InvokeAndGet "POST" "$baseUrl/api/v1/telemetry/events" $companyA "VIEWER" $telePathCross $headersCross
   Assert-Status $resT3.Status @("400") "[T08-C] 타사 equipmentCode 차단(400)" $resT3.RespPath
@@ -781,8 +813,7 @@ $teleBody9 = @"
 "@
 $telePath9 = New-TempJsonFile "t09_tel_ok_$ts09" $teleBody9
 $teleRaw9 = Get-Content $telePath9 -Raw
-$teleObj9 = $teleRaw9 | ConvertFrom-Json
-$teleCanonical9 = $teleObj9 | ConvertTo-Json -Compress -Depth 6
+$teleCanonical9 = Get-LegacyCanonicalFromFile $telePath9
 $nonce9 = ([Guid]::NewGuid().ToString("N"))
 $tsEpoch9 = [int][DateTimeOffset]::UtcNow.ToUnixTimeSeconds()
 $bodyHash9 = Sha256HexStr $teleCanonical9
@@ -794,6 +825,7 @@ $authHeaders9 = @{
   "x-ts" = "$tsEpoch9"
   "x-nonce" = $nonce9
   "x-signature" = $signature9
+  "x-canonical" = "legacy-json"
 }
 
 $resT9Ok = Invoke-CurlJsonAuth "POST" "$baseUrl/api/v1/telemetry/events" $companyA "VIEWER" $telePath9 $authHeaders9
@@ -837,21 +869,60 @@ function Send-TelemetrySigned {
     eventType = "STATUS"
     payload = @{ state = "RUN"; speed = 10 }
   }
-  $bodyCanonical = $bodyObj | ConvertTo-Json -Compress -Depth 6
+  $tmp = New-TempJsonFile "t09_1_tel" ($bodyObj | ConvertTo-Json -Depth 10 -Compress)
+  $bodyCanonical = Get-LegacyCanonicalFromFile $tmp
   $bodyHash = Sha256HexStr $bodyCanonical
   $tsEpoch = [int][DateTimeOffset]::UtcNow.ToUnixTimeSeconds()
   $nonce = ([Guid]::NewGuid().ToString("N"))
   $canonical = "$CompanyId`n$DeviceKeyId`n$tsEpoch`n$nonce`n$bodyHash"
   $signature = HmacSha256HexStr $DeviceSecret $canonical
 
-  $tmp = New-TempJsonFile "t09_1_tel_$tsEpoch" $bodyCanonical
   $resp = Invoke-CurlJsonAuth "POST" "$baseUrl/api/v1/telemetry/events" $CompanyId "VIEWER" $tmp @{
     "x-device-key" = $DeviceKeyId
     "x-ts" = "$tsEpoch"
     "x-nonce" = $nonce
     "x-signature" = $signature
+    "x-canonical" = "legacy-json"
   }
   Assert-Status $resp.Status $Expected "[T09.1] telemetry signed" $resp.RespFile
+}
+
+function Send-TelemetrySignedStableJson {
+  param(
+    [string]$CompanyId,
+    [string]$DeviceKeyId,
+    [string]$DeviceKeySecret,
+    [string]$EquipmentCode,
+    [int[]]$Expected
+  )
+
+  # 키 순서를 섞은 payload (stable-json 규칙 검증)
+  $bodyObj = @{
+    payload = @{ z = 9; a = 1; t = (Get-Date).ToString("o") }
+    eventType = "TELEMETRY"
+    equipmentCode = $EquipmentCode
+  }
+  $rawFile = New-TempJsonFile "t09_2_body" ($bodyObj | ConvertTo-Json -Depth 10 -Compress)
+  $bodyCanonical = (node -e "const fs=require('fs'); const {stableStringify}=require('./src/utils/canonicalJson'); const data=JSON.parse(fs.readFileSync(process.argv[1],'utf8')); process.stdout.write(stableStringify(data));" $rawFile).Trim()
+  $bodyHash = Sha256HexStr $bodyCanonical
+  $tsEpoch = [int][DateTimeOffset]::UtcNow.ToUnixTimeSeconds()
+  $nonce = ([Guid]::NewGuid().ToString("N"))
+  $canonical = "$CompanyId`n$DeviceKeyId`n$tsEpoch`n$nonce`n$bodyHash"
+  $signature = node -e "const crypto=require('crypto'); const secret=process.argv[1]; const canonical=process.argv[2]; process.stdout.write(crypto.createHmac('sha256',secret).update(canonical,'utf8').digest('hex'));" $DeviceKeySecret $canonical
+
+  if ($env:SMOKE_DEBUG_TELEMETRY -eq "1") {
+    Write-Host "[DEBUG][T09.2] canonical=$canonical" -ForegroundColor Yellow
+    Write-Host "[DEBUG][T09.2] bodyHash=$bodyHash" -ForegroundColor Yellow
+  }
+
+  $resp = Invoke-CurlJsonAuth "POST" "$baseUrl/api/v1/telemetry/events" $CompanyId "VIEWER" $rawFile @{
+    "x-device-key" = $DeviceKeyId
+    "x-ts" = "$tsEpoch"
+    "x-nonce" = $nonce
+    "x-signature" = $signature
+    "x-canonical" = "stable-json"
+  }
+  Assert-Status $resp.Status $Expected "[T09.2] telemetry stable-json" $resp.RespFile
 }
 
 # 1) rotate: 새 키 201, 이전 키 401
@@ -876,6 +947,10 @@ Send-TelemetrySigned -CompanyId $companyA -DeviceKeyId $oldKeyId -DeviceSecret $
 Send-TelemetrySigned -CompanyId $companyA -DeviceKeyId $newKeyId2 -DeviceSecret $newSecret2 -EquipmentCode $equipCodeA9 -Expected @(201)
 Write-Host "[PASS] Ticket-09.1 rotate(2) 이전키 401 / 새키 201 확인" -ForegroundColor Green
 
+# 09.2 stable-json canonical 확인 (201)
+Send-TelemetrySignedStableJson -CompanyId $companyA -DeviceKeyId $newKeyId2 -DeviceKeySecret $newSecret2 -EquipmentCode $equipCodeA9 -Expected @(201)
+Write-Host "[PASS] Ticket-09.2 stable-json canonical 확인(201)" -ForegroundColor Green
+
 # 2) revoke: 폐기 후 401
 $revokeRes = Invoke-CurlJsonAuth "POST" "$baseUrl/api/v1/equipments/$equipmentIdA9/device-key/revoke" $companyA "OPERATOR" $null @{}
 Assert-Status $revokeRes.Status @("200") "[T09.1-3] device-key revoke" $revokeRes.RespFile
@@ -893,3 +968,122 @@ if ($cleanup.removed -lt 1) {
 Write-Host "[PASS] Ticket-09.1 nonce cleanup 삭제 확인" -ForegroundColor Green
 
 Write-Host "[PASS] Ticket-09.1 Telemetry Ops 스모크 완료" -ForegroundColor Green
+
+# -----------------------------
+# Ticket-10 Smoke: Work Orders / Results
+# -----------------------------
+Write-Host "`n[SMOKE] Ticket-10 Work Orders/Results 시작" -ForegroundColor Cyan
+
+if (-not $baseUrl)  { $baseUrl  = "http://localhost:4000" }
+if (-not $companyA) { $companyA = "COMPANY-A" }
+$companyB = "COMPANY-B"
+
+function New-JsonFileFromObj {
+  param([object]$Obj)
+  $json = $Obj | ConvertTo-Json -Depth 10 -Compress
+  return New-TempJsonFile "t10" $json
+}
+
+function Invoke-ApiSimple {
+  param(
+    [string]$Method,
+    [string]$Url,
+    [hashtable]$Headers,
+    [string]$JsonFilePath
+  )
+  $respPath = New-TemporaryFile
+  $args = @("-s","-o",$respPath,"-w","%{http_code}","-X",$Method,$Url)
+  foreach ($k in $Headers.Keys) {
+    $args += @("-H", "${k}: $($Headers[$k])")
+  }
+  if ($JsonFilePath) {
+    $args += @("-H","Content-Type: application/json","--data","@$JsonFilePath")
+  }
+  $status = & curl.exe @args
+  return @{ Status = [string]$status; RespPath = [string]$respPath }
+}
+
+function Ensure-Item {
+  param([string]$CompanyId, [string]$Code)
+  $catList = Invoke-ApiSimple "GET" "$baseUrl/api/v1/item-categories" @{ "x-company-id"=$CompanyId; "x-role"="VIEWER" } $null
+  Assert-Status $catList.Status @("200") "T10 category list" $catList.RespPath
+  $cat = (Get-Content $catList.RespPath -Raw | ConvertFrom-Json).data | Select-Object -First 1
+  if (-not $cat) {
+    $catFile = New-JsonFileFromObj @{ name="SMOKE_CAT"; code="SMOKE-CAT" }
+    $catRes = Invoke-ApiSimple "POST" "$baseUrl/api/v1/item-categories" @{ "x-company-id"=$CompanyId; "x-role"="OPERATOR" } $catFile
+    Assert-Status $catRes.Status @("201","409") "T10 category create" $catRes.RespPath
+  }
+  $catList2 = Invoke-ApiSimple "GET" "$baseUrl/api/v1/item-categories" @{ "x-company-id"=$CompanyId; "x-role"="VIEWER" } $null
+  $cat2 = (Get-Content $catList2.RespPath -Raw | ConvertFrom-Json).data | Select-Object -First 1
+
+  $itemFile = New-JsonFileFromObj @{ categoryId=$cat2.id; name="SMOKE_ITEM_$Code"; code=$Code }
+  $itemRes = Invoke-ApiSimple "POST" "$baseUrl/api/v1/items" @{ "x-company-id"=$CompanyId; "x-role"="OPERATOR" } $itemFile
+  Assert-Status $itemRes.Status @("201","409") "T10 item create" $itemRes.RespPath
+
+  $itemList = Invoke-ApiSimple "GET" "$baseUrl/api/v1/items" @{ "x-company-id"=$CompanyId; "x-role"="VIEWER" } $null
+  $item = (Get-Content $itemList.RespPath -Raw | ConvertFrom-Json).data | Where-Object { $_.code -eq $Code } | Select-Object -First 1
+  if (-not $item) { Write-Host "[FAIL] item not found" -ForegroundColor Red; exit 1 }
+  return $item.id
+}
+
+function Ensure-Process {
+  param([string]$CompanyId, [string]$ProcCode)
+  $procFile = New-JsonFileFromObj @{ name="SMOKE_PROC_$ProcCode"; code=$ProcCode; sortOrder=0 }
+  $procRes = Invoke-ApiSimple "POST" "$baseUrl/api/v1/processes" @{ "x-company-id"=$CompanyId; "x-role"="OPERATOR" } $procFile
+  Assert-Status $procRes.Status @("201","409") "T10 process create" $procRes.RespPath
+  $procList = Invoke-ApiSimple "GET" "$baseUrl/api/v1/processes" @{ "x-company-id"=$CompanyId; "x-role"="VIEWER" } $null
+  $proc = (Get-Content $procList.RespPath -Raw | ConvertFrom-Json).data | Where-Object { $_.code -eq $ProcCode } | Select-Object -First 1
+  if (-not $proc) { Write-Host "[FAIL] process not found" -ForegroundColor Red; exit 1 }
+  return $proc.id
+}
+
+function Ensure-Equipment {
+  param([string]$CompanyId, [string]$EqCode, [int]$ProcessId)
+  $eqFile = New-JsonFileFromObj @{
+    name="SMOKE_EQ_$EqCode"; code=$EqCode; processId=$ProcessId;
+    commType="SERIAL"; commConfig=@{ port="COM1"; baudrate=9600; intervalSec=1 }; isActive=1
+  }
+  $eqRes = Invoke-ApiSimple "POST" "$baseUrl/api/v1/equipments" @{ "x-company-id"=$CompanyId; "x-role"="OPERATOR" } $eqFile
+  Assert-Status $eqRes.Status @("201","409") "T10 equipment create" $eqRes.RespPath
+  $eqList = Invoke-ApiSimple "GET" "$baseUrl/api/v1/equipments" @{ "x-company-id"=$CompanyId; "x-role"="VIEWER" } $null
+  $eq = (Get-Content $eqList.RespPath -Raw | ConvertFrom-Json).data | Where-Object { $_.code -eq $EqCode } | Select-Object -First 1
+  if (-not $eq) { Write-Host "[FAIL] equipment not found" -ForegroundColor Red; exit 1 }
+  return $eq.id
+}
+
+Write-Host "[STEP] Ticket-10 준비: COMPANY-A 기준 item/process/equipment 확보" -ForegroundColor Cyan
+$itemA = Ensure-Item -CompanyId $companyA -Code "SMOKE-ITEM-A10"
+$procA = Ensure-Process -CompanyId $companyA -ProcCode "SMOKE-PROC-A10"
+$eqA = Ensure-Equipment -CompanyId $companyA -EqCode "SMOKE-EQ-A10" -ProcessId $procA
+
+Write-Host "[STEP] Ticket-10 작업지시 등록 201/409" -ForegroundColor Cyan
+$woNo = "WO-SMOKE-001"
+$woFile = New-JsonFileFromObj @{
+  woNo = $woNo; itemId = $itemA; processId = $procA; equipmentId = $eqA;
+  planQty = 10; status = "PLANNED"
+}
+$woResp = Invoke-ApiSimple "POST" "$baseUrl/api/v1/work-orders" @{ "x-company-id"=$companyA; "x-role"="OPERATOR" } $woFile
+Assert-Status $woResp.Status @("201","409") "T10 work-order create" $woResp.RespPath
+
+Write-Host "[STEP] Ticket-10 VIEWER 작업지시 등록 차단 403" -ForegroundColor Cyan
+$woFile2 = New-JsonFileFromObj @{ woNo="WO-SMOKE-VIEW"; itemId=$itemA; processId=$procA; planQty=1; status="PLANNED" }
+$woResp2 = Invoke-ApiSimple "POST" "$baseUrl/api/v1/work-orders" @{ "x-company-id"=$companyA; "x-role"="VIEWER" } $woFile2
+Assert-Status $woResp2.Status @("403") "T10 work-order viewer" $woResp2.RespPath
+
+Write-Host "[STEP] Ticket-10 타사 item/process 조합 400" -ForegroundColor Cyan
+$itemB = Ensure-Item -CompanyId $companyB -Code "SMOKE-ITEM-B10"
+$badFile = New-JsonFileFromObj @{ woNo="WO-SMOKE-BAD"; itemId=$itemB; processId=$procA; planQty=1; status="PLANNED" }
+$badResp = Invoke-ApiSimple "POST" "$baseUrl/api/v1/work-orders" @{ "x-company-id"=$companyA; "x-role"="OPERATOR" } $badFile
+Assert-Status $badResp.Status @("400") "T10 work-order cross-tenant" $badResp.RespPath
+
+Write-Host "[STEP] Ticket-10 실적 등록 201" -ForegroundColor Cyan
+$woList = Invoke-ApiSimple "GET" "$baseUrl/api/v1/work-orders?limit=10" @{ "x-company-id"=$companyA; "x-role"="VIEWER" } $null
+Assert-Status $woList.Status @("200") "T10 work-order list" $woList.RespPath
+$wo = (Get-Content $woList.RespPath -Raw | ConvertFrom-Json).data | Where-Object { $_.woNo -eq $woNo } | Select-Object -First 1
+if (-not $wo) { Write-Host "[FAIL] work-order not found for results" -ForegroundColor Red; exit 1 }
+
+$resFile = New-JsonFileFromObj @{ goodQty=5; defectQty=1; eventTs=(Get-Date).ToString("o"); note="smoke" }
+$resResp = Invoke-ApiSimple "POST" "$baseUrl/api/v1/work-orders/$($wo.id)/results" @{ "x-company-id"=$companyA; "x-role"="OPERATOR" } $resFile
+Assert-Status $resResp.Status @("201") "T10 results create" $resResp.RespPath
+
+Write-Host "[PASS] Ticket-10 Work Orders/Results 스모크 완료" -ForegroundColor Green
