@@ -128,6 +128,81 @@ function Clear-ErdEnv {
   Remove-Item Env:SMOKE_GEN_ERD,Env:SMOKE_GEN_ERD_RENDER,Env:SMOKE_GEN_ERD_STRICT,Env:SMOKE_GEN_ERD_ENFORCE -ErrorAction SilentlyContinue
 }
 
+function Invoke-ReportCacheProbe {
+  param(
+    [string]$BaseUrl,
+    [string]$HealthUrl,
+    [hashtable]$Headers,
+    [ref]$ServerProcRef
+  )
+
+  $probe = ($env:RG_REPORT_CACHE_PROBE -eq "1")
+  if (-not $probe) { return }
+
+  $strict = ($env:RG_REPORT_CACHE_PROBE_STRICT -eq "1")
+  $path = $env:RG_REPORT_KPI_PATH
+  if (-not $path) { $path = "/api/v1/reports/kpi/daily" }
+  $date = $env:RG_REPORT_KPI_DATE
+  if (-not $date) { $date = (Get-Date -Format "yyyy-MM-dd") }
+
+  Write-Info "REPORT_KPI 캐시 probe 시작 (path=$path, date=$date)"
+
+  # 서버를 PREFER 모드로 재기동(가능한 경우)
+  if ($ServerProcRef.Value) {
+    Write-Info "REPORT_KPI_CACHE_MODE=PREFER로 서버 재기동"
+    try { Stop-Process -Id $ServerProcRef.Value.Id -Force -ErrorAction SilentlyContinue } catch {}
+    $env:REPORT_KPI_CACHE_MODE = "PREFER"
+
+    $proc = Start-Process -FilePath node -ArgumentList "src/server.js" -PassThru
+    $candidates = Get-HealthCandidates $BaseUrl $HealthUrl
+    $found = Wait-HealthAny $candidates $Headers 15
+    if (-not $found) {
+      try { Stop-Process -Id $proc.Id -Force -ErrorAction SilentlyContinue } catch {}
+      $msg = "REPORT_KPI probe 실패: 서버 재기동 후 헬스 체크 실패"
+      if ($strict) { throw $msg } else { Write-Warn $msg; return }
+    }
+    $script:ResolvedHealthUrl = $found
+    $ServerProcRef.Value = $proc
+  } else {
+    $msg = "REPORT_KPI probe: 서버를 자동 기동한 상태가 아니므로 재기동을 건너뜁니다."
+    if ($strict) { throw $msg } else { Write-Warn $msg }
+  }
+
+  $url = "$BaseUrl$path" + "?date=$date"
+  $resp1 = $null
+  $resp2 = $null
+
+  try {
+    $resp1 = Invoke-WebRequest -Uri $url -Method Get -Headers $Headers -TimeoutSec 5
+    $resp2 = Invoke-WebRequest -Uri $url -Method Get -Headers $Headers -TimeoutSec 5
+  } catch {
+    $msg = "REPORT_KPI probe 요청 실패: $($_.Exception.Message)"
+    if ($strict) { throw $msg } else { Write-Warn $msg; return }
+  }
+
+  if ($resp2.StatusCode -ne 200) {
+    $msg = "REPORT_KPI probe 응답 코드가 200이 아닙니다. (2차 호출: $($resp2.StatusCode))"
+    if ($strict) { throw $msg } else { Write-Warn $msg; return }
+  }
+
+  # meta.cache 힌트가 있으면 2차 호출이 CACHE인지 확인
+  try {
+    $json = $resp2.Content | ConvertFrom-Json -ErrorAction Stop
+    if ($json.meta -and $json.meta.cache) {
+      if ($json.meta.cache -ne "CACHE") {
+        $msg = "REPORT_KPI probe: meta.cache가 CACHE가 아닙니다. (value=$($json.meta.cache))"
+        if ($strict) { throw $msg } else { Write-Warn $msg }
+      } else {
+        Write-Info "REPORT_KPI probe: meta.cache=CACHE 확인"
+      }
+    } else {
+      Write-Info "REPORT_KPI probe: meta.cache 힌트 없음(200 OK만 확인)"
+    }
+  } catch {
+    Write-Warn "REPORT_KPI probe: JSON 파싱 실패. 200 OK만 확인합니다."
+  }
+}
+
 function Get-NextTag([string]$series) {
   $args = @("tools/baseline-tag.ps1")
   if ($series) { $args += @("-Series", $series) }
@@ -147,8 +222,11 @@ try {
   $serverProc = Start-ServerIfNeeded $BaseUrl $HealthUrl
   Set-ErdEnv
   Run-Smoke
-} finally {
   Clear-ErdEnv
+
+  $headers = @{ "x-company-id" = "HEALTH"; "x-role" = "VIEWER" }
+  Invoke-ReportCacheProbe -BaseUrl $BaseUrl -HealthUrl $HealthUrl -Headers $headers -ServerProcRef ([ref]$serverProc)
+} finally {
   if ($serverProc) {
     Write-Info "서버 종료"
     try { Stop-Process -Id $serverProc.Id -Force -ErrorAction SilentlyContinue } catch {}
