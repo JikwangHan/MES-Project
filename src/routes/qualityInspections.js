@@ -30,6 +30,10 @@ const getInspection = (id) =>
     .get(id);
 const getDefectType = (id) =>
   db.prepare('SELECT id, company_id FROM defect_types WHERE id = ?').get(id);
+const getLotById = (companyId, id) =>
+  db.prepare('SELECT id, company_id FROM lots WHERE company_id = ? AND id = ?').get(companyId, id);
+const getLotByNo = (companyId, lotNo) =>
+  db.prepare('SELECT id, company_id FROM lots WHERE company_id = ? AND lot_no = ?').get(companyId, lotNo);
 
 // POST /api/v1/quality/inspections
 router.post('/inspections', ensureNotViewer, (req, res) => {
@@ -39,6 +43,8 @@ router.post('/inspections', ensureNotViewer, (req, res) => {
     itemId,
     processId,
     equipmentId,
+    lotId,
+    lotNo,
     inspectionType,
     status,
     inspectedAt,
@@ -91,16 +97,22 @@ router.post('/inspections', ensureNotViewer, (req, res) => {
   const itemIdValue = toId(itemId);
   const processIdValue = toId(processId);
   const equipmentIdValue = toId(equipmentId);
+  const lotIdValue = toId(lotId);
 
   const workOrder = workOrderIdValue ? getWorkOrder(workOrderIdValue) : null;
   const item = itemIdValue ? getItem(itemIdValue) : null;
-  const process = processIdValue ? getProcess(processIdValue) : null;
+  const processRow = processIdValue ? getProcess(processIdValue) : null;
   const equipment = equipmentIdValue ? getEquipment(equipmentIdValue) : null;
+  let lot = lotIdValue ? getLotById(companyId, lotIdValue) : null;
+
+  if (!lot && lotNo) {
+    lot = getLotByNo(companyId, lotNo);
+  }
 
   if (
     (workOrderIdValue && (!workOrder || workOrder.company_id !== companyId)) ||
     (itemIdValue && (!item || item.company_id !== companyId)) ||
-    (processIdValue && (!process || process.company_id !== companyId)) ||
+    (processIdValue && (!processRow || processRow.company_id !== companyId)) ||
     (equipmentIdValue && (!equipment || equipment.company_id !== companyId))
   ) {
     insertAuditLog({
@@ -124,13 +136,53 @@ router.post('/inspections', ensureNotViewer, (req, res) => {
       );
   }
 
+  const requireLot = process.env.REQUIRE_LOT_ON_QI === '1';
+  if (lotNo && !lot) {
+    insertAuditLog({
+      companyId,
+      actorRole: role,
+      action: 'CREATE_FAIL',
+      entity: 'quality_inspections',
+      payload: { inspectionNo, lotNo, reason: 'LOT_NOT_FOUND' },
+    });
+    return res
+      .status(400)
+      .json(fail(ERR.QI_LOT_NOT_FOUND.code, ERR.QI_LOT_NOT_FOUND.message));
+  }
+
+  if (requireLot && !lot) {
+    insertAuditLog({
+      companyId,
+      actorRole: role,
+      action: 'CREATE_FAIL',
+      entity: 'quality_inspections',
+      payload: { inspectionNo, lotId, lotNo, reason: 'LOT_NOT_FOUND' },
+    });
+    return res
+      .status(400)
+      .json(fail(ERR.QI_LOT_NOT_FOUND.code, ERR.QI_LOT_NOT_FOUND.message));
+  }
+
+  if (lot && lot.company_id !== companyId) {
+    insertAuditLog({
+      companyId,
+      actorRole: role,
+      action: 'CREATE_FAIL',
+      entity: 'quality_inspections',
+      payload: { inspectionNo, lotId, lotNo, reason: 'LOT_NOT_FOUND' },
+    });
+    return res
+      .status(400)
+      .json(fail(ERR.QI_LOT_NOT_FOUND.code, ERR.QI_LOT_NOT_FOUND.message));
+  }
+
   try {
     const result = db
       .prepare(
         `INSERT INTO quality_inspections
-         (company_id, inspection_no, work_order_id, item_id, process_id, equipment_id,
+         (company_id, inspection_no, work_order_id, item_id, process_id, equipment_id, lot_id,
           inspection_type, status, inspected_at, inspector_name, note)
-         VALUES (@companyId, @inspectionNo, @workOrderId, @itemId, @processId, @equipmentId,
+         VALUES (@companyId, @inspectionNo, @workOrderId, @itemId, @processId, @equipmentId, @lotId,
                  @inspectionType, @status, @inspectedAt, @inspectorName, @note)`
       )
       .run({
@@ -140,6 +192,7 @@ router.post('/inspections', ensureNotViewer, (req, res) => {
         itemId: itemIdValue,
         processId: processIdValue,
         equipmentId: equipmentIdValue,
+        lotId: lot ? lot.id : null,
         inspectionType,
         status,
         inspectedAt: inspectedAt || new Date().toISOString(),
@@ -151,7 +204,7 @@ router.post('/inspections', ensureNotViewer, (req, res) => {
       .prepare(
         `SELECT id, company_id as companyId, inspection_no as inspectionNo,
                 work_order_id as workOrderId, item_id as itemId, process_id as processId,
-                equipment_id as equipmentId, inspection_type as inspectionType,
+                equipment_id as equipmentId, lot_id as lotId, inspection_type as inspectionType,
                 status, inspected_at as inspectedAt, inspector_name as inspectorName,
                 note, created_at as createdAt
          FROM quality_inspections WHERE id = ?`
@@ -164,7 +217,7 @@ router.post('/inspections', ensureNotViewer, (req, res) => {
       action: 'CREATE',
       entity: 'quality_inspections',
       entityId: result.lastInsertRowid,
-      payload: { inspectionNo, inspectionType, status },
+      payload: { inspectionNo, inspectionType, status, lotId: lot ? lot.id : null },
     });
 
     return res.status(201).json(ok(created));
@@ -226,7 +279,7 @@ router.get('/inspections', (req, res) => {
     .prepare(
       `SELECT id, company_id as companyId, inspection_no as inspectionNo,
               work_order_id as workOrderId, item_id as itemId, process_id as processId,
-              equipment_id as equipmentId, inspection_type as inspectionType,
+              equipment_id as equipmentId, lot_id as lotId, inspection_type as inspectionType,
               status, inspected_at as inspectedAt, inspector_name as inspectorName,
               note, created_at as createdAt
        FROM quality_inspections

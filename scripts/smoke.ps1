@@ -1422,3 +1422,58 @@ $t = Smoke13_GetTrace $Smoke13_BaseUrl "COMPANY-A" $lotNoA
 Smoke13_AssertOneOf $t.Status @(200) "Ticket-13B: trace 조회(200)"
 
 Smoke13_Print "[PASS] Ticket-13 LOT Trace 스모크 완료"
+
+# ---------------------------
+# Ticket-13.1 Smoke: Work Order - LOT Link
+# ---------------------------
+Write-Host "`n[SMOKE] Ticket-13.1 WorkOrder-LOT Link 시작" -ForegroundColor Cyan
+
+Write-Host "[STEP] T13.1 작업지시/LOT 준비 (COMPANY-A)" -ForegroundColor Cyan
+$itemLinkA = Ensure-Item -CompanyId $companyA -Code "SMOKE-ITEM-LINK-A"
+$procLinkA = Ensure-Process -CompanyId $companyA -ProcCode "SMOKE-PROC-LINK-A"
+$eqLinkA = Ensure-Equipment -CompanyId $companyA -EqCode "SMOKE-EQ-LINK-A" -ProcessId $procLinkA
+
+$woNoLink = "WO-LINK-" + (Get-Date -Format "yyyyMMddHHmmss")
+$woFileLink = New-JsonFileFromObj @{ woNo=$woNoLink; itemId=$itemLinkA; processId=$procLinkA; equipmentId=$eqLinkA; planQty=1; status="PLANNED" }
+$woRespLink = Invoke-ApiSimple "POST" "$baseUrl/api/v1/work-orders" @{ "x-company-id"=$companyA; "x-role"="OPERATOR" } $woFileLink
+Assert-Status $woRespLink.Status @("201","409") "T13.1 work-order create" $woRespLink.RespPath
+
+$woListLink = Invoke-ApiSimple "GET" "$baseUrl/api/v1/work-orders?limit=20" @{ "x-company-id"=$companyA; "x-role"="VIEWER" } $null
+Assert-Status $woListLink.Status @("200") "T13.1 work-order list" $woListLink.RespPath
+$woLink = (Get-Content $woListLink.RespPath -Raw | ConvertFrom-Json).data | Where-Object { $_.woNo -eq $woNoLink } | Select-Object -First 1
+if (-not $woLink) { Write-Host "[FAIL] T13.1 work-order not found" -ForegroundColor Red; exit 1 }
+
+$lotNoLink = "LOT-LINK-" + (Get-Date -Format "yyyyMMddHHmmss")
+$lotFileLink = New-JsonFileFromObj @{ lotNo=$lotNoLink; itemId=$itemLinkA; qty=1; unit="EA"; status="CREATED" }
+$lotRespLink = Invoke-ApiSimple "POST" "$baseUrl/api/v1/lots" @{ "x-company-id"=$companyA; "x-role"="OPERATOR" } $lotFileLink
+Assert-Status $lotRespLink.Status @("201","409") "T13.1 lot create" $lotRespLink.RespPath
+
+$lotListLink = Invoke-ApiSimple "GET" "$baseUrl/api/v1/lots?lotNo=$lotNoLink" @{ "x-company-id"=$companyA; "x-role"="VIEWER" } $null
+Assert-Status $lotListLink.Status @("200") "T13.1 lot list" $lotListLink.RespPath
+$lotLink = (Get-Content $lotListLink.RespPath -Raw | ConvertFrom-Json).data | Select-Object -First 1
+if (-not $lotLink) { Write-Host "[FAIL] T13.1 lot not found" -ForegroundColor Red; exit 1 }
+
+Write-Host "[STEP] T13.1 링크 생성 201/409" -ForegroundColor Cyan
+$linkResp = Invoke-ApiSimple "POST" "$baseUrl/api/v1/work-orders/$($woLink.id)/lots/$($lotLink.id)/link" @{ "x-company-id"=$companyA; "x-role"="OPERATOR" } $null
+Assert-Status $linkResp.Status @("201","409") "T13.1 link create" $linkResp.RespPath
+
+Write-Host "[STEP] T13.1 VIEWER 차단 403" -ForegroundColor Cyan
+$linkRespViewer = Invoke-ApiSimple "POST" "$baseUrl/api/v1/work-orders/$($woLink.id)/lots/$($lotLink.id)/link" @{ "x-company-id"=$companyA; "x-role"="VIEWER" } $null
+Assert-Status $linkRespViewer.Status @("403") "T13.1 link viewer" $linkRespViewer.RespPath
+
+Write-Host "[STEP] T13.1 타사 LOT 링크 400" -ForegroundColor Cyan
+$itemLinkB = Ensure-Item -CompanyId $companyB -Code "SMOKE-ITEM-LINK-B"
+$lotNoLinkB = "LOT-LINK-B-" + (Get-Date -Format "yyyyMMddHHmmss")
+$lotFileLinkB = New-JsonFileFromObj @{ lotNo=$lotNoLinkB; itemId=$itemLinkB; qty=1; unit="EA"; status="CREATED" }
+$lotRespLinkB = Invoke-ApiSimple "POST" "$baseUrl/api/v1/lots" @{ "x-company-id"=$companyB; "x-role"="OPERATOR" } $lotFileLinkB
+Assert-Status $lotRespLinkB.Status @("201","409") "T13.1 lot create B" $lotRespLinkB.RespPath
+
+$lotListLinkB = Invoke-ApiSimple "GET" "$baseUrl/api/v1/lots?lotNo=$lotNoLinkB" @{ "x-company-id"=$companyB; "x-role"="VIEWER" } $null
+Assert-Status $lotListLinkB.Status @("200") "T13.1 lot list B" $lotListLinkB.RespPath
+$lotLinkB = (Get-Content $lotListLinkB.RespPath -Raw | ConvertFrom-Json).data | Select-Object -First 1
+if (-not $lotLinkB) { Write-Host "[FAIL] T13.1 lot B not found" -ForegroundColor Red; exit 1 }
+
+$linkRespBad = Invoke-ApiSimple "POST" "$baseUrl/api/v1/work-orders/$($woLink.id)/lots/$($lotLinkB.id)/link" @{ "x-company-id"=$companyA; "x-role"="OPERATOR" } $null
+Assert-Status $linkRespBad.Status @("400") "T13.1 link cross-tenant" $linkRespBad.RespPath
+
+Write-Host "[PASS] Ticket-13.1 WorkOrder-LOT Link 스모크 완료" -ForegroundColor Green

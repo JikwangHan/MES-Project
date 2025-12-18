@@ -437,6 +437,29 @@ LOT 마스터 생성과 계보(Trace) 조회 API입니다.
 6. 감사 로그 확인
    - `audit_logs`에서 `entity=lots` CREATE/FAIL 기록 확인 가능.
 
+## 15-1) Ticket-13.1 작업지시-LOT 링크 API 실행하기
+작업지시와 LOT을 연결하는 최소 운영형 API입니다.
+
+1. 링크 생성 (OPERATOR)
+   ```powershell
+   curl.exe -X POST "http://localhost:4000/api/v1/work-orders/1/lots/1/link" ^
+     -H "x-company-id: COMPANY-A" ^
+     -H "x-role: OPERATOR"
+   ```
+   - 같은 링크가 이미 있으면 409(WO_LOT_LINK_DUPLICATE)
+2. VIEWER 차단 (403)
+   ```powershell
+   curl.exe -X POST "http://localhost:4000/api/v1/work-orders/1/lots/1/link" ^
+     -H "x-company-id: COMPANY-A" ^
+     -H "x-role: VIEWER"
+   ```
+3. 타사 workOrder/lot 사용 (400)
+   ```powershell
+   curl.exe -X POST "http://localhost:4000/api/v1/work-orders/999/lots/999/link" ^
+     -H "x-company-id: COMPANY-A" ^
+     -H "x-role: OPERATOR"
+   ```
+
 ## 16) 자주 쓰는 Git 명령 (초보자용)
  - 변경 사항 확인: `git status`
  - 파일 추가/갱신 상태 확인: `git status -sb` (요약)
