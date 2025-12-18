@@ -467,6 +467,26 @@ LOT 마스터 생성과 계보(Trace) 조회 API입니다.
  - 커밋 만들기: `git commit -m "메시지"`
  - GitHub로 올리기: `git push origin main` (처음 푸시하는 경우 브랜치 이름을 확인하세요. 기본은 `main`)
 
+## 16-1) 릴리즈 게이트(원클릭) 및 baseline 태그 자동화
+운영 단계에서는 태그 오타/중복을 줄이기 위해 자동 스크립트를 사용하는 것을 권장합니다.
+
+1) 다음 baseline 태그 계산만(출력만)
+```powershell
+pwsh .\tools\baseline-tag.ps1
+```
+
+2) 릴리즈 게이트 원클릭(DryRun)
+```powershell
+$env:MES_MASTER_KEY="dev-master-key"
+pwsh .\tools\release-gate.ps1
+```
+
+3) 태그 생성 + 원격 푸시까지
+```powershell
+$env:MES_MASTER_KEY="dev-master-key"
+pwsh .\tools\release-gate.ps1 -ApplyTag -PushTag
+```
+
 ## 17) 다음 단계 제안
  - 프로젝트 목표와 요구사항을 정리한 문서 추가 (예: `docs/requirements.md`)
  - 백엔드/프론트엔드 선택 후 폴더 구조 잡기 (예: `backend/`, `frontend/`)
