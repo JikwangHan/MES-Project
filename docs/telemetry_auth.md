@@ -9,12 +9,18 @@
 - `x-ts`: 요청 생성 시각(Unix epoch seconds)
 - `x-nonce`: 재사용 불가 난수(권장: 16~32 bytes)
 - `x-signature`: HMAC-SHA256 서명(hex)
+- `x-canonical`: canonical 방식 선택
+  - `stable-json` (기본값, 권장)
+  - `legacy-json` (호환 목적, 제한 기간 지원)
 
 ## 2) Canonical 규칙(고정)
 
-서명은 **JSON 압축 문자열(JSON.stringify(body)) 기준**으로 계산합니다.
+기본 서명은 **Stable JSON(키 정렬 + minify)** 기준으로 계산합니다.
 
-1) `bodyCanonical = JSON.stringify(body)`
+레거시 장비/게이트웨이는 `x-canonical: legacy-json`으로
+기존 JSON.stringify(body) 규칙을 선택할 수 있습니다.
+
+1) `bodyCanonical = stableStringify(body)`
 2) `bodyHash = SHA256_HEX(bodyCanonical)`
 3) `canonical = companyId + "\n" + deviceKeyId + "\n" + ts + "\n" + nonce + "\n" + bodyHash`
 4) `signature = HMAC_SHA256_HEX(secret, canonical)`
@@ -31,8 +37,19 @@ function hmac256Hex(secret, msg) {
   return crypto.createHmac('sha256', secret).update(msg, 'utf8').digest('hex');
 }
 
+function stableStringify(obj) {
+  if (Array.isArray(obj)) {
+    return `[${obj.map(stableStringify).join(',')}]`;
+  }
+  if (obj && typeof obj === 'object') {
+    const keys = Object.keys(obj).sort();
+    return `{${keys.map((k) => `"${k}":${stableStringify(obj[k])}`).join(',')}}`;
+  }
+  return JSON.stringify(obj);
+}
+
 function signTelemetry({ companyId, deviceKeyId, secret, ts, nonce, body }) {
-  const bodyCanonical = JSON.stringify(body);
+  const bodyCanonical = stableStringify(body);
   const bodyHash = sha256Hex(bodyCanonical);
   const canonical = [companyId, deviceKeyId, String(ts), nonce, bodyHash].join('\n');
   return hmac256Hex(secret, canonical);
@@ -88,7 +105,7 @@ static string SignTelemetry(string companyId, string deviceKeyId, string secret,
 ## 6) 비-Node 환경 주의사항
 
 - JSON 키 순서가 라이브러리마다 달라질 수 있습니다.
-- 서버는 **JSON 압축 문자열(JSON.stringify)** 기준으로 서명 검증을 하므로,
+- 서버는 **Stable JSON(키 정렬 + minify)** 기준으로 서명 검증을 하므로,
   - Python: `json.dumps(..., separators=(',', ':'))`
   - C#: `JsonSerializer`에서 공백 제거 옵션 사용
 - 키 순서가 달라지는 환경에서는 **키 정렬(정규화 JSON)** 정책을 별도 합의해야 합니다.
