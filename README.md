@@ -276,7 +276,7 @@ Ticket-01과 같은 패턴으로 바로 테스트할 수 있습니다.
    curl.exe -X POST "http://localhost:4000/api/v1/telemetry/events" ^
      -H "Content-Type: application/json" ^
      -H "x-company-id: COMPANY-A" ^
-     -H "x-role: VIEWER" ^  # 이번 티켓에서는 VIEWER도 허용(장비 수신 목적)
+     -H "x-role: VIEWER" ^  # Ticket-08: VIEWER도 허용(장비 수신 목적)
      -d "{\"equipmentCode\":\"EQ-001\",\"timestamp\":\"2025-12-17T12:00:00+09:00\",\"eventType\":\"STATUS\",\"payload\":{\"state\":\"RUN\",\"speed\":120}}"
    ```
    - equipmentCode 없으면 400(TELEMETRY_EQUIPMENT_CODE_REQUIRED)
@@ -293,6 +293,10 @@ Ticket-01과 같은 패턴으로 바로 테스트할 수 있습니다.
    - limit가 숫자 아님/0/200 초과 → 400(TELEMETRY_LIMIT_INVALID)
 4. 감사 로그 확인  
    - `audit_logs`에서 `entity=telemetry_events` CREATE/FAIL 기록 확인 가능.
+
+※ Ticket-09(보안 강화) 이후에는 Telemetry POST 시 추가 헤더 필요  
+`x-device-key`, `x-ts`(epoch), `x-nonce`, `x-signature`(HMAC-SHA256)  
+— 디바이스 키 발급 API(`/api/v1/equipments/:id/device-key`)로 key/secret을 받은 뒤 서명 계산(스모크 참고).
 
 ## 13) 자주 쓰는 Git 명령 (초보자용)
  - 변경 사항 확인: `git status`

@@ -19,7 +19,14 @@ const PORT = process.env.PORT || 4000;
 init();
 
 // 기본 미들웨어
-app.use(express.json());
+app.use(
+  express.json({
+    verify: (req, _res, buf) => {
+      // Telemetry 서명 검증을 위해 원문 보관
+      req.rawBody = buf;
+    },
+  })
+);
 app.use(tenantMiddleware);
 app.use(attachRole);
 

@@ -63,6 +63,20 @@ function Safe-Remove($path) {
   if (Test-Path $path) { Remove-Item $path -Force -ErrorAction SilentlyContinue }
 }
 
+# HMAC/Hash 유틸 (Ticket-08/09에서 서명 계산용)
+function Sha256Hex($text) {
+  $sha = [System.Security.Cryptography.SHA256]::Create()
+  $bytes = [System.Text.Encoding]::UTF8.GetBytes($text)
+  ($sha.ComputeHash($bytes) | ForEach-Object { $_.ToString("x2") }) -join ""
+}
+
+function HmacSha256Hex($secret, $canonical) {
+  $keyBytes = [System.Text.Encoding]::UTF8.GetBytes($secret)
+  $h = New-Object System.Security.Cryptography.HMACSHA256 -ArgumentList (,$keyBytes)
+  $msgBytes = [System.Text.Encoding]::UTF8.GetBytes($canonical)
+  ($h.ComputeHash($msgBytes) | ForEach-Object { $_.ToString("x2") }) -join ""
+}
+
 $baseUrl = "http://localhost:4000"
 $company = "SMOKE-CO"
 $roleOp = "OPERATOR"
@@ -502,7 +516,21 @@ $companyB = "COMPANY-B"
 $ts08 = Get-Date -Format "yyyyMMddHHmmss"
 
 function _InvokeAndGet {
-  param([string]$Method,[string]$Url,[string]$CompanyId,[string]$Role,[string]$JsonPath)
+  param([string]$Method,[string]$Url,[string]$CompanyId,[string]$Role,[string]$JsonPath,[hashtable]$ExtraHeaders)
+  if ($ExtraHeaders) {
+    $respFile = New-TemporaryFile
+    $args = @("-s","-o",$respFile,"-w","%{http_code}","-X",$Method,$Url,
+              "-H","Content-Type: application/json",
+              "-H","x-company-id: $CompanyId",
+              "-H","x-role: $Role")
+    foreach ($k in $ExtraHeaders.Keys) {
+      $args += @("-H", "${k}: $($ExtraHeaders[$k])")
+    }
+    if ($JsonPath) { $args += @("--data", "@$JsonPath") }
+    $status = & curl.exe @args
+    return @{ Status = [string]$status; RespPath = [string]$respFile }
+  }
+
   $r = Invoke-CurlJson $Method $Url $CompanyId $Role $JsonPath
   if ($r -is [hashtable] -and $r.ContainsKey("Status") -and $r.ContainsKey("RespPath")) {
     return @{ Status = [string]$r.Status; RespPath = [string]$r.RespPath }
@@ -542,6 +570,39 @@ try {
   $resEA = _InvokeAndGet "POST" "$baseUrl/api/v1/equipments" $companyA "OPERATOR" $equipPathA
   Assert-Status $resEA.Status @("201","409") "[T08-SETUP-B] COMPANY-A 설비 생성(201/409)" $resEA.RespPath
 } finally { Safe-Remove $equipPathA }
+$equipIdA = Get-JsonId $resEA.RespPath
+
+# device-key 발급
+$issueBodyA = @"
+{ "note": "t08-issue-$ts08" }
+"@
+$issuePathA = New-TempJsonFile "t08_issueA_$ts08" $issueBodyA
+$resIssueA = _InvokeAndGet "POST" "$baseUrl/api/v1/equipments/$equipIdA/device-key" $companyA "MANAGER" $issuePathA
+Assert-Status $resIssueA.Status @("201") "[T08-SETUP-C] COMPANY-A device-key 발급(201)" $resIssueA.RespPath
+Safe-Remove $issuePathA
+$issueJsonA = Get-Content $resIssueA.RespPath -Raw | ConvertFrom-Json
+$deviceKeyIdA = $issueJsonA.data.deviceKeyId
+$deviceSecretA = $issueJsonA.data.deviceSecret
+
+function BuildTeleHeadersT08($bodyRaw) {
+  $bodyObj = $bodyRaw | ConvertFrom-Json
+  $bodyCanonical = $bodyObj | ConvertTo-Json -Compress -Depth 6
+  $nonce = ([Guid]::NewGuid().ToString("N"))
+  $tsNow = [int][DateTimeOffset]::UtcNow.ToUnixTimeSeconds()
+  $bodyHash = Sha256Hex $bodyCanonical
+  $canonical = "$companyA`n$deviceKeyIdA`n$tsNow`n$nonce`n$bodyHash"
+  $sig = HmacSha256Hex $deviceSecretA $canonical
+  if ($env:SMOKE_DEBUG_TELEMETRY -eq "1") {
+    Write-Host "[DEBUG][T08] canonical=$canonical" -ForegroundColor Yellow
+    Write-Host "[DEBUG][T08] sigCalc=$sig" -ForegroundColor Yellow
+  }
+  return @{
+    "x-device-key" = $deviceKeyIdA
+    "x-ts" = "$tsNow"
+    "x-nonce" = $nonce
+    "x-signature" = $sig
+  }
+}
 
 # (A) 정상 Telemetry 수신 201
 $teleBodyOk = @"
@@ -553,8 +614,16 @@ $teleBodyOk = @"
 }
 "@
 $telePathOk = New-TempJsonFile "t08_tel_ok_$ts08" $teleBodyOk
+$rawOk = Get-Content $telePathOk -Raw
+$rawOk | ForEach-Object {
+  if ($env:SMOKE_DEBUG_TELEMETRY -eq "1") {
+    Write-Host "[DEBUG][T08] client raw body:" -ForegroundColor Yellow
+    Write-Host $_ -ForegroundColor Yellow
+  }
+}
+$headersOk = BuildTeleHeadersT08 $rawOk
 try {
-  $resT1 = _InvokeAndGet "POST" "$baseUrl/api/v1/telemetry/events" $companyA "VIEWER" $telePathOk
+  $resT1 = _InvokeAndGet "POST" "$baseUrl/api/v1/telemetry/events" $companyA "VIEWER" $telePathOk $headersOk
   Assert-Status $resT1.Status @("201") "[T08-A] 정상 수신(201)" $resT1.RespPath
 } finally { Safe-Remove $telePathOk }
 
@@ -567,8 +636,10 @@ $teleBodyMissing = @"
 }
 "@
 $telePathMissing = New-TempJsonFile "t08_tel_missing_$ts08" $teleBodyMissing
+$rawMissing = Get-Content $telePathMissing -Raw
+$headersMissing = BuildTeleHeadersT08 $rawMissing
 try {
-  $resT2 = _InvokeAndGet "POST" "$baseUrl/api/v1/telemetry/events" $companyA "VIEWER" $telePathMissing
+  $resT2 = _InvokeAndGet "POST" "$baseUrl/api/v1/telemetry/events" $companyA "VIEWER" $telePathMissing $headersMissing
   Assert-Status $resT2.Status @("400") "[T08-B] equipmentCode 누락(400)" $resT2.RespPath
 } finally { Safe-Remove $telePathMissing }
 
@@ -611,9 +682,135 @@ $teleBodyCross = @"
 }
 "@
 $telePathCross = New-TempJsonFile "t08_tel_cross_$ts08" $teleBodyCross
+$rawCross = Get-Content $telePathCross -Raw
+$headersCross = BuildTeleHeadersT08 $rawCross
 try {
-  $resT3 = _InvokeAndGet "POST" "$baseUrl/api/v1/telemetry/events" $companyA "VIEWER" $telePathCross
+  $resT3 = _InvokeAndGet "POST" "$baseUrl/api/v1/telemetry/events" $companyA "VIEWER" $telePathCross $headersCross
   Assert-Status $resT3.Status @("400") "[T08-C] 타사 equipmentCode 차단(400)" $resT3.RespPath
 } finally { Safe-Remove $telePathCross }
 
 Write-Host "[PASS] Ticket-08 Telemetry 스모크 완료" -ForegroundColor Green
+
+# -----------------------------
+# Ticket-09 Smoke: Telemetry Auth
+# -----------------------------
+Write-Host "`n[SMOKE] Ticket-09 Telemetry Auth 시작" -ForegroundColor Cyan
+
+if (-not $baseUrl)  { $baseUrl  = "http://localhost:4000" }
+if (-not $companyA) { $companyA = "COMPANY-A" }
+$companyB = "COMPANY-B"
+
+$ts09 = Get-Date -Format "yyyyMMddHHmmss"
+
+function Invoke-CurlJsonAuth {
+  param([string]$Method,[string]$Url,[string]$CompanyId,[string]$Role,[string]$JsonPath,[hashtable]$ExtraHeaders)
+  $respFile = Join-Path $env:TEMP ("smoke_t09_" + [Guid]::NewGuid().ToString("N") + ".json")
+  $args = @("-s","-o",$respFile,"-w","%{http_code}","-X",$Method,$Url,
+            "-H","Content-Type: application/json",
+            "-H","x-company-id: $CompanyId",
+            "-H","x-role: $Role")
+  foreach ($k in $ExtraHeaders.Keys) {
+    $args += @("-H", "${k}: $($ExtraHeaders[$k])")
+  }
+  if ($JsonPath) { $args += @("--data", "@$JsonPath") }
+  $status = & curl.exe @args
+  return @{ Status = [string]$status; RespFile = [string]$respFile }
+}
+
+function Sha256HexStr([string]$s) {
+  $sha = [System.Security.Cryptography.SHA256]::Create()
+  $bytes = [System.Text.Encoding]::UTF8.GetBytes($s)
+  ($sha.ComputeHash($bytes) | ForEach-Object { $_.ToString("x2") }) -join ""
+}
+
+function HmacSha256HexStr([string]$secret, [string]$canonical) {
+  $keyBytes = [System.Text.Encoding]::UTF8.GetBytes($secret)
+  $h = New-Object System.Security.Cryptography.HMACSHA256 -ArgumentList (,$keyBytes)
+  $msgBytes = [System.Text.Encoding]::UTF8.GetBytes($canonical)
+  ($h.ComputeHash($msgBytes) | ForEach-Object { $_.ToString("x2") }) -join ""
+}
+
+# 준비: COMPANY-A 공정/설비 생성
+$procBodyA9 = @"
+{ "name":"T09공정A-$ts09", "code":"PROC-A-T09-$ts09", "parentId": null, "sortOrder": 0 }
+"@
+$procPathA9 = New-TempJsonFile "t09_procA_$ts09" $procBodyA9
+$procResA9 = Invoke-CurlJsonAuth "POST" "$baseUrl/api/v1/processes" $companyA "OPERATOR" $procPathA9 @{}
+Assert-Status $procResA9.Status @("201") "[T09-SETUP-A] COMPANY-A 공정 생성(201)" $procResA9.RespFile
+$processIdA9 = Get-JsonId $procResA9.RespFile
+
+$equipCodeA9 = "EQ-A-T09-$ts09"
+$equipBodyA9 = @"
+{
+  "name": "T09설비A-$ts09",
+  "code": "$equipCodeA9",
+  "processId": $processIdA9,
+  "commType": "HTTP",
+  "commConfig": { "url": "http://dummy" },
+  "isActive": 1
+}
+"@
+$equipPathA9 = New-TempJsonFile "t09_equipA_$ts09" $equipBodyA9
+$equipResA9 = Invoke-CurlJsonAuth "POST" "$baseUrl/api/v1/equipments" $companyA "OPERATOR" $equipPathA9 @{}
+Assert-Status $equipResA9.Status @("201") "[T09-SETUP-B] COMPANY-A 설비 생성(201)" $equipResA9.RespFile
+$equipmentIdA9 = Get-JsonId $equipResA9.RespFile
+
+# (1) device-key 발급
+$issueBody9 = @"
+{ "note": "smoke-issue-$ts09" }
+"@
+$issuePath9 = New-TempJsonFile "t09_issue_$ts09" $issueBody9
+$issueRes9 = Invoke-CurlJsonAuth "POST" "$baseUrl/api/v1/equipments/$equipmentIdA9/device-key" $companyA "MANAGER" $issuePath9 @{}
+Assert-Status $issueRes9.Status @("201") "[T09-1] device-key 발급(201)" $issueRes9.RespFile
+$issueJson9 = Get-Content $issueRes9.RespFile -Raw | ConvertFrom-Json
+$deviceKeyId9 = $issueJson9.data.deviceKeyId
+$deviceSecret9 = $issueJson9.data.deviceSecret
+if (-not $deviceKeyId9 -or -not $deviceSecret9) {
+  Write-Host "[FAIL] deviceKeyId/deviceSecret 파싱 실패" -ForegroundColor Red
+  Get-Content $issueRes9.RespFile | Write-Host
+  exit 1
+}
+
+# (2) 정상 telemetry 201
+$teleBody9 = @"
+{
+  "equipmentCode": "$equipCodeA9",
+  "eventType": "STATUS",
+  "payload": { "state": "RUN", "speed": 77 }
+}
+"@
+$telePath9 = New-TempJsonFile "t09_tel_ok_$ts09" $teleBody9
+$teleRaw9 = Get-Content $telePath9 -Raw
+$teleObj9 = $teleRaw9 | ConvertFrom-Json
+$teleCanonical9 = $teleObj9 | ConvertTo-Json -Compress -Depth 6
+$nonce9 = ([Guid]::NewGuid().ToString("N"))
+$tsEpoch9 = [int][DateTimeOffset]::UtcNow.ToUnixTimeSeconds()
+$bodyHash9 = Sha256HexStr $teleCanonical9
+$canonical9 = "$companyA`n$deviceKeyId9`n$tsEpoch9`n$nonce9`n$bodyHash9"
+$signature9 = HmacSha256HexStr $deviceSecret9 $canonical9
+
+$authHeaders9 = @{
+  "x-device-key" = $deviceKeyId9
+  "x-ts" = "$tsEpoch9"
+  "x-nonce" = $nonce9
+  "x-signature" = $signature9
+}
+
+$resT9Ok = Invoke-CurlJsonAuth "POST" "$baseUrl/api/v1/telemetry/events" $companyA "VIEWER" $telePath9 $authHeaders9
+Assert-Status $resT9Ok.Status @("201") "[T09-2] 정상 telemetry(201)" $resT9Ok.RespFile
+
+# (3) nonce 재전송 401
+$resT9Replay = Invoke-CurlJsonAuth "POST" "$baseUrl/api/v1/telemetry/events" $companyA "VIEWER" $telePath9 $authHeaders9
+Assert-Status $resT9Replay.Status @("401") "[T09-3] nonce 재전송 차단(401)" $resT9Replay.RespFile
+
+# (4) 서명 변조 401
+$authHeadersBad9 = @{
+  "x-device-key" = $deviceKeyId9
+  "x-ts" = "$tsEpoch9"
+  "x-nonce" = ([Guid]::NewGuid().ToString("N"))
+  "x-signature" = ("00" + $signature9.Substring(2))
+}
+$resT9Bad = Invoke-CurlJsonAuth "POST" "$baseUrl/api/v1/telemetry/events" $companyA "VIEWER" $telePath9 $authHeadersBad9
+Assert-Status $resT9Bad.Status @("401") "[T09-4] 서명 변조 차단(401)" $resT9Bad.RespFile
+
+Write-Host "[PASS] Ticket-09 Telemetry Auth 스모크 완료" -ForegroundColor Green
