@@ -302,6 +302,65 @@ const init = () => {
     ON quality_inspection_results (company_id, inspection_id);
   `);
 
+  // LOT: 마스터
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS lots (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      company_id TEXT NOT NULL,
+      lot_no TEXT NOT NULL,
+      item_id INTEGER NOT NULL,
+      work_order_id INTEGER,
+      parent_lot_id INTEGER,
+      qty REAL NOT NULL DEFAULT 0,
+      unit TEXT NOT NULL DEFAULT 'EA',
+      status TEXT NOT NULL DEFAULT 'CREATED',
+      produced_at TEXT,
+      notes TEXT,
+      created_at TEXT NOT NULL DEFAULT (datetime('now')),
+      FOREIGN KEY (item_id) REFERENCES items(id),
+      FOREIGN KEY (work_order_id) REFERENCES work_orders(id),
+      FOREIGN KEY (parent_lot_id) REFERENCES lots(id),
+      CONSTRAINT uniq_company_lot_no UNIQUE (company_id, lot_no)
+    );
+  `);
+
+  db.exec(`
+    CREATE INDEX IF NOT EXISTS idx_lots_company_item
+    ON lots (company_id, item_id);
+  `);
+
+  db.exec(`
+    CREATE INDEX IF NOT EXISTS idx_lots_company_created
+    ON lots (company_id, created_at);
+  `);
+
+  // LOT 이벤트(선택)
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS lot_events (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      company_id TEXT NOT NULL,
+      lot_id INTEGER NOT NULL,
+      event_type TEXT NOT NULL,
+      qty REAL,
+      unit TEXT,
+      ref_entity TEXT,
+      ref_id INTEGER,
+      event_ts TEXT NOT NULL,
+      created_at TEXT NOT NULL DEFAULT (datetime('now')),
+      FOREIGN KEY (lot_id) REFERENCES lots(id)
+    );
+  `);
+
+  db.exec(`
+    CREATE INDEX IF NOT EXISTS idx_lot_events_company_ts
+    ON lot_events (company_id, event_ts);
+  `);
+
+  db.exec(`
+    CREATE INDEX IF NOT EXISTS idx_lot_events_company_lot
+    ON lot_events (company_id, lot_id);
+  `);
+
   // 감사 로그
   db.exec(`
     CREATE TABLE IF NOT EXISTS audit_logs (

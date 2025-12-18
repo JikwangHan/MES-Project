@@ -116,6 +116,30 @@ module.exports = {
     code: 'QUALITY_RESULT_VALUE_INVALID',
     message: '측정값이 올바르지 않습니다.',
   },
+  LOT_NO_DUPLICATE: {
+    code: 'LOT_NO_DUPLICATE',
+    message: '동일한 LOT 번호가 이미 존재합니다.',
+  },
+  LOT_ITEM_NOT_FOUND: {
+    code: 'LOT_ITEM_NOT_FOUND',
+    message: '품목 정보가 유효하지 않습니다.',
+  },
+  LOT_WORK_ORDER_NOT_FOUND: {
+    code: 'LOT_WORK_ORDER_NOT_FOUND',
+    message: '작업지시 정보가 유효하지 않습니다.',
+  },
+  LOT_PARENT_NOT_FOUND: {
+    code: 'LOT_PARENT_NOT_FOUND',
+    message: '상위 LOT 정보를 찾을 수 없습니다.',
+  },
+  LOT_NOT_FOUND: {
+    code: 'LOT_NOT_FOUND',
+    message: 'LOT 정보를 찾을 수 없습니다.',
+  },
+  LOT_TRACE_INVALID: {
+    code: 'LOT_TRACE_INVALID',
+    message: 'trace 파라미터가 올바르지 않습니다.',
+  },
   TELEMETRY_LIMIT_INVALID: {
     code: 'TELEMETRY_LIMIT_INVALID',
     message: 'limit 값이 올바르지 않습니다.',
