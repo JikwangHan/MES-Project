@@ -186,4 +186,90 @@ router.post('/:id/device-key', ensureNotViewer, (req, res) => {
   return res.status(201).json(ok({ deviceKeyId, deviceSecret, issuedAt }));
 });
 
+// POST /api/v1/equipments/:id/device-key/rotate
+router.post('/:id/device-key/rotate', ensureNotViewer, (req, res) => {
+  const companyId = req.companyId;
+  const role = req.userRole;
+  const equipmentId = Number(req.params.id);
+
+  const equipment = db
+    .prepare('SELECT id, company_id, device_key_id FROM equipments WHERE id = ?')
+    .get(equipmentId);
+
+  if (!equipment || equipment.company_id !== companyId) {
+    return res.status(404).json(fail(ERR.NOT_FOUND.code, ERR.NOT_FOUND.message));
+  }
+
+  const prevDeviceKeyId = equipment.device_key_id || null;
+  const deviceKeyId = uuidv4();
+  const deviceSecret = crypto.randomBytes(32).toString('hex');
+  const encryptedSecret = encryptSecret(deviceSecret);
+  const issuedAt = new Date().toISOString();
+
+  db.prepare(
+    `UPDATE equipments
+     SET device_key_id = @deviceKeyId,
+         device_key_secret_enc = @encryptedSecret,
+         device_key_status = 'ACTIVE',
+         device_key_issued_at = @issuedAt
+     WHERE id = @equipmentId`
+  ).run({
+    deviceKeyId,
+    encryptedSecret,
+    issuedAt,
+    equipmentId,
+  });
+
+  insertAuditLog({
+    companyId,
+    actorRole: role,
+    action: 'UPDATE',
+    entity: 'equipments',
+    entityId: equipmentId,
+    payload: { deviceKeyId, issuedAt, prevDeviceKeyId, action: 'ROTATE' },
+  });
+
+  return res
+    .status(200)
+    .json(ok({ deviceKeyId, deviceSecret, deviceKeySecret: deviceSecret, issuedAt }));
+});
+
+// POST /api/v1/equipments/:id/device-key/revoke
+router.post('/:id/device-key/revoke', ensureNotViewer, (req, res) => {
+  const companyId = req.companyId;
+  const role = req.userRole;
+  const equipmentId = Number(req.params.id);
+
+  const equipment = db
+    .prepare('SELECT id, company_id, device_key_id FROM equipments WHERE id = ?')
+    .get(equipmentId);
+
+  if (!equipment || equipment.company_id !== companyId) {
+    return res.status(404).json(fail(ERR.NOT_FOUND.code, ERR.NOT_FOUND.message));
+  }
+
+  if (!equipment.device_key_id) {
+    return res
+      .status(400)
+      .json(fail(ERR.VALIDATION_ERROR.code, 'device_key가 발급되지 않았습니다.'));
+  }
+
+  db.prepare(
+    `UPDATE equipments
+     SET device_key_status = 'REVOKED'
+     WHERE id = @equipmentId`
+  ).run({ equipmentId });
+
+  insertAuditLog({
+    companyId,
+    actorRole: role,
+    action: 'UPDATE',
+    entity: 'equipments',
+    entityId: equipmentId,
+    payload: { deviceKeyId: equipment.device_key_id, action: 'REVOKE' },
+  });
+
+  return res.status(200).json(ok({ deviceKeyId: equipment.device_key_id, status: 'REVOKED' }));
+});
+
 module.exports = router;
