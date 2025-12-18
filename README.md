@@ -391,14 +391,60 @@ Ticket-01과 같은 패턴으로 바로 테스트할 수 있습니다.
      -d "{\"checkItemCode\":\"CHK-WEIGHT-B\",\"measuredValue\":100}"
    ```
 
-## 15) 자주 쓰는 Git 명령 (초보자용)
+## 15) Ticket-13 LOT 추적(Trace) API 실행하기
+LOT 마스터 생성과 계보(Trace) 조회 API입니다.
+
+1. LOT 생성 (OPERATOR)
+   ```powershell
+   curl.exe -X POST "http://localhost:4000/api/v1/lots" ^
+     -H "Content-Type: application/json" ^
+     -H "x-company-id: COMPANY-A" ^
+     -H "x-role: OPERATOR" ^
+     -d "{\"lotNo\":\"LOT-A-001\",\"itemId\":1,\"qty\":10,\"unit\":\"EA\",\"status\":\"CREATED\"}"
+   ```
+   - 같은 회사에서 lotNo 중복 → 409(LOT_NO_DUPLICATE)
+   - itemId가 없거나 타사 → 400(LOT_ITEM_NOT_FOUND)
+2. 자식 LOT 생성
+   ```powershell
+   curl.exe -X POST "http://localhost:4000/api/v1/lots" ^
+     -H "Content-Type: application/json" ^
+     -H "x-company-id: COMPANY-A" ^
+     -H "x-role: OPERATOR" ^
+     -d "{\"lotNo\":\"LOT-A-001-CH1\",\"itemId\":1,\"parentLotNo\":\"LOT-A-001\",\"qty\":5,\"unit\":\"EA\",\"status\":\"CREATED\"}"
+   ```
+3. VIEWER 생성 차단 (403)
+   ```powershell
+   curl.exe -X POST "http://localhost:4000/api/v1/lots" ^
+     -H "Content-Type: application/json" ^
+     -H "x-company-id: COMPANY-A" ^
+     -H "x-role: VIEWER" ^
+     -d "{\"lotNo\":\"LOT-V-001\",\"itemId\":1,\"qty\":1,\"unit\":\"EA\",\"status\":\"CREATED\"}"
+   ```
+4. 잘못된 itemId(400)
+   ```powershell
+   curl.exe -X POST "http://localhost:4000/api/v1/lots" ^
+     -H "Content-Type: application/json" ^
+     -H "x-company-id: COMPANY-A" ^
+     -H "x-role: OPERATOR" ^
+     -d "{\"lotNo\":\"LOT-BADITEM-001\",\"itemId\":999999,\"qty\":1,\"unit\":\"EA\",\"status\":\"CREATED\"}"
+   ```
+5. Trace 조회 (200)
+   ```powershell
+   curl.exe -X GET "http://localhost:4000/api/v1/lots/LOT-A-001/trace?direction=down&depth=3" ^
+     -H "x-company-id: COMPANY-A" ^
+     -H "x-role: VIEWER"
+   ```
+6. 감사 로그 확인
+   - `audit_logs`에서 `entity=lots` CREATE/FAIL 기록 확인 가능.
+
+## 16) 자주 쓰는 Git 명령 (초보자용)
  - 변경 사항 확인: `git status`
  - 파일 추가/갱신 상태 확인: `git status -sb` (요약)
  - 새 파일 스테이징: `git add 파일명`
  - 커밋 만들기: `git commit -m "메시지"`
  - GitHub로 올리기: `git push origin main` (처음 푸시하는 경우 브랜치 이름을 확인하세요. 기본은 `main`)
 
-## 16) 다음 단계 제안
+## 17) 다음 단계 제안
  - 프로젝트 목표와 요구사항을 정리한 문서 추가 (예: `docs/requirements.md`)
  - 백엔드/프론트엔드 선택 후 폴더 구조 잡기 (예: `backend/`, `frontend/`)
  - 테스트 자동화 도입 (예: Jest, Vitest, Pytest 등 스택에 맞춰 선택)
