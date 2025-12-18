@@ -14,6 +14,13 @@ const formatDate = (date) => date.toISOString().slice(0, 10);
 
 const addDays = (date, days) => new Date(date.getTime() + days * 86400000);
 
+const isValidDateString = (value) => {
+  if (!DATE_RE.test(value)) return false;
+  const parsed = toDateOnly(value);
+  if (Number.isNaN(parsed.getTime())) return false;
+  return formatDate(parsed) === value;
+};
+
 const parseDateRange = (query) => {
   const today = new Date();
   let from = query.from;
@@ -24,7 +31,7 @@ const parseDateRange = (query) => {
     from = formatDate(addDays(today, -6));
   }
 
-  if ((from && !DATE_RE.test(from)) || (to && !DATE_RE.test(to))) {
+  if ((from && !isValidDateString(from)) || (to && !isValidDateString(to))) {
     return { ok: false, status: 400, err: ERR.REPORT_DATE_INVALID };
   }
 
