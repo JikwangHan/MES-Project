@@ -1,0 +1,253 @@
+%% Auto-generated: tools/erd/generate_erd.js
+%% Source DB: data/mes.db
+%% GeneratedAt: 2025-12-18T05:39:38.454Z
+
+erDiagram
+  audit_logs {
+    int id PK
+    text company_id
+    text actor_role
+    text action
+    text entity
+    int entity_id
+    text payload
+    text created_at
+  }
+  defect_types {
+    int id PK
+    text company_id
+    text name
+    text code
+    int process_id FK
+    int severity
+    int is_active
+    text created_by_role
+    text created_at
+    text updated_at
+  }
+  equipments {
+    int id PK
+    text company_id
+    text name
+    text code
+    int process_id FK
+    text comm_type
+    text comm_config_json
+    int is_active
+    text created_by_role
+    text created_at
+    text updated_at
+    text device_key_id
+    text device_key_secret_enc
+    text device_key_status
+    text device_key_issued_at
+    text device_key_last_seen_at
+  }
+  item_boms {
+    int id PK
+    text company_id
+    int parent_item_id FK
+    int child_item_id FK
+    float qty
+    text unit
+    text created_by_role
+    text created_at
+    text updated_at
+  }
+  item_categories {
+    int id PK
+    text company_id
+    text name
+    text code
+    int parent_id FK
+    text created_by_role
+    text created_at
+    text updated_at
+  }
+  items {
+    int id PK
+    text company_id
+    int category_id FK
+    text name
+    text code
+    text created_by_role
+    text created_at
+    text updated_at
+  }
+  lot_events {
+    int id PK
+    text company_id
+    int lot_id FK
+    text event_type
+    float qty
+    text unit
+    text ref_entity
+    int ref_id
+    text event_ts
+    text created_at
+  }
+  lots {
+    int id PK
+    text company_id
+    text lot_no
+    int item_id FK
+    int work_order_id FK
+    int parent_lot_id FK
+    float qty
+    text unit
+    text status
+    text produced_at
+    text notes
+    text created_at
+  }
+  partners {
+    int id PK
+    text company_id
+    text name
+    text code
+    text type
+    text contact_name
+    text phone
+    text email
+    text address
+    int is_active
+    text created_by_role
+    text created_at
+    text updated_at
+  }
+  processes {
+    int id PK
+    text company_id
+    text name
+    text code
+    int parent_id FK
+    int sort_order
+    text created_by_role
+    text created_at
+    text updated_at
+  }
+  production_results {
+    int id PK
+    text company_id
+    int work_order_id FK
+    float good_qty
+    float defect_qty
+    text event_ts
+    text note
+    text created_at
+  }
+  quality_check_items {
+    int id PK
+    text company_id
+    text name
+    text code
+    text data_type
+    text unit
+    float lower_limit
+    float upper_limit
+    float target_value
+    int is_required
+    text created_at
+  }
+  quality_inspection_defects {
+    int id PK
+    text company_id
+    int inspection_id FK
+    int defect_type_id FK
+    float qty
+    text note
+    text created_at
+  }
+  quality_inspection_results {
+    int id PK
+    text company_id
+    int inspection_id FK
+    int check_item_id FK
+    float measured_value_num
+    text measured_value_text
+    int measured_value_bool
+    text judgement
+    text note
+    text created_at
+  }
+  quality_inspections {
+    int id PK
+    text company_id
+    text inspection_no
+    int work_order_id FK
+    int item_id FK
+    int process_id FK
+    int equipment_id FK
+    text inspection_type
+    text status
+    text inspected_at
+    text inspector_name
+    text note
+    text created_at
+    int lot_id
+  }
+  telemetry_events {
+    int id PK
+    text company_id
+    int equipment_id FK
+    text equipment_code
+    text event_type
+    text event_ts
+    text payload_json
+    text received_at
+  }
+  telemetry_nonces {
+    int id PK
+    text company_id
+    int equipment_id FK
+    text nonce
+    int ts
+    text created_at
+  }
+  work_order_lots {
+    int id PK
+    text company_id
+    int work_order_id FK
+    int lot_id FK
+    text created_at
+  }
+  work_orders {
+    int id PK
+    text company_id
+    text wo_no
+    int item_id FK
+    int process_id FK
+    int equipment_id FK
+    float plan_qty
+    text status
+    text scheduled_start_at
+    text scheduled_end_at
+    text created_at
+  }
+  processes ||--o{ defect_types : "process_id -> processes.id"
+  processes ||--o{ equipments : "process_id -> processes.id"
+  items ||--o{ item_boms : "child_item_id -> items.id"
+  items ||--o{ item_boms : "parent_item_id -> items.id"
+  item_categories ||--o{ item_categories : "parent_id -> item_categories.id"
+  item_categories ||--o{ items : "category_id -> item_categories.id"
+  lots ||--o{ lot_events : "lot_id -> lots.id"
+  lots ||--o{ lots : "parent_lot_id -> lots.id"
+  work_orders ||--o{ lots : "work_order_id -> work_orders.id"
+  items ||--o{ lots : "item_id -> items.id"
+  processes ||--o{ processes : "parent_id -> processes.id"
+  work_orders ||--o{ production_results : "work_order_id -> work_orders.id"
+  defect_types ||--o{ quality_inspection_defects : "defect_type_id -> defect_types.id"
+  quality_inspections ||--o{ quality_inspection_defects : "inspection_id -> quality_inspections.id"
+  quality_check_items ||--o{ quality_inspection_results : "check_item_id -> quality_check_items.id"
+  quality_inspections ||--o{ quality_inspection_results : "inspection_id -> quality_inspections.id"
+  equipments ||--o{ quality_inspections : "equipment_id -> equipments.id"
+  processes ||--o{ quality_inspections : "process_id -> processes.id"
+  items ||--o{ quality_inspections : "item_id -> items.id"
+  work_orders ||--o{ quality_inspections : "work_order_id -> work_orders.id"
+  equipments ||--o{ telemetry_events : "equipment_id -> equipments.id"
+  equipments ||--o{ telemetry_nonces : "equipment_id -> equipments.id"
+  lots ||--o{ work_order_lots : "lot_id -> lots.id"
+  work_orders ||--o{ work_order_lots : "work_order_id -> work_orders.id"
+  equipments ||--o{ work_orders : "equipment_id -> equipments.id"
+  processes ||--o{ work_orders : "process_id -> processes.id"
+  items ||--o{ work_orders : "item_id -> items.id"

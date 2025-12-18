@@ -112,6 +112,65 @@ function Get-LegacyCanonicalFromFile {
   return (node -e "const fs=require('fs'); const data=JSON.parse(fs.readFileSync(process.argv[1],'utf8')); process.stdout.write(JSON.stringify(data));" $Path).Trim()
 }
 
+# ERD gate (optional)
+function Invoke-ErdGate {
+  param(
+    [string]$DbPath = "data/mes.db",
+    [string]$OutDir = "docs/erd"
+  )
+
+  if ($env:SMOKE_GEN_ERD -ne "1") {
+    return
+  }
+
+  $strict = ($env:SMOKE_GEN_ERD_STRICT -eq "1")
+  $render = ($env:SMOKE_GEN_ERD_RENDER -eq "1")
+  $enforce = ($env:SMOKE_GEN_ERD_ENFORCE -eq "1")
+
+  function Erd-Fail([string]$msg) {
+    if ($strict) {
+      throw $msg
+    } else {
+      Write-Host "[ERD][WARN] $msg" -ForegroundColor Yellow
+    }
+  }
+
+  try {
+    if (!(Test-Path $DbPath)) {
+      Erd-Fail "DB 파일이 없습니다: $DbPath"
+      return
+    }
+
+    $mmdPath = Join-Path $OutDir "mes_erd.mmd"
+    Write-Host "[ERD] Mermaid 생성 시작" -ForegroundColor Cyan
+    & node "tools/erd/generate_erd.js" --db $DbPath --out $mmdPath | Out-Null
+    if (!(Test-Path $mmdPath)) {
+      Erd-Fail "Mermaid 파일 생성 실패: $mmdPath"
+      return
+    }
+    Write-Host "[ERD] Mermaid 생성 완료: $mmdPath" -ForegroundColor Green
+
+    if ($render) {
+      Write-Host "[ERD] PNG/PDF 렌더링 시작" -ForegroundColor Cyan
+      try {
+        & pwsh "tools/erd/render_erd.ps1" -Input $mmdPath -OutDir $OutDir | Out-Null
+        Write-Host "[ERD] PNG/PDF 렌더링 완료" -ForegroundColor Green
+      } catch {
+        Erd-Fail "렌더링 실패: $($_.Exception.Message)"
+      }
+    }
+
+    if ($enforce) {
+      $dirty = & git status --porcelain -- "$OutDir/*.mmd"
+      if ($dirty) {
+        throw "ERD 산출물이 git에 반영되지 않았습니다. docs/erd/*.mmd 변경사항을 커밋하세요."
+      }
+    }
+  } catch {
+    Erd-Fail "ERD 게이트 실패: $($_.Exception.Message)"
+  }
+}
+
 $baseUrl = "http://localhost:4000"
 $company = "SMOKE-CO"
 $roleOp = "OPERATOR"
@@ -1477,3 +1536,8 @@ $linkRespBad = Invoke-ApiSimple "POST" "$baseUrl/api/v1/work-orders/$($woLink.id
 Assert-Status $linkRespBad.Status @("400") "T13.1 link cross-tenant" $linkRespBad.RespPath
 
 Write-Host "[PASS] Ticket-13.1 WorkOrder-LOT Link 스모크 완료" -ForegroundColor Green
+
+# ---------------------------
+# Optional ERD Gate
+# ---------------------------
+Invoke-ErdGate -DbPath "data/mes.db" -OutDir "docs/erd"
