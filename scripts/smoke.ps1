@@ -1087,3 +1087,119 @@ $resResp = Invoke-ApiSimple "POST" "$baseUrl/api/v1/work-orders/$($wo.id)/result
 Assert-Status $resResp.Status @("201") "T10 results create" $resResp.RespPath
 
 Write-Host "[PASS] Ticket-10 Work Orders/Results 스모크 완료" -ForegroundColor Green
+
+# -----------------------------
+# Ticket-11 Smoke: Quality Inspections / Defects
+# -----------------------------
+Write-Host "`n[SMOKE] Ticket-11 Quality Inspections 시작" -ForegroundColor Cyan
+
+function T11_EnsureInspectionPrereqs {
+  param([string]$CompanyId)
+
+  $procCode = "SMOKE-Q-PROC"
+  $eqCode = "SMOKE-Q-EQ"
+  $defCode = "SMOKE-Q-DEF"
+
+  $pfile = New-JsonFileFromObj @{ name="SMOKE_Q_PROC"; code=$procCode; sortOrder=0 }
+  $pr = Invoke-ApiSimple "POST" "$baseUrl/api/v1/processes" @{ "x-company-id"=$CompanyId; "x-role"="OPERATOR" } $pfile
+  Assert-Status $pr.Status @("201","409") "T11 process ensure" $pr.RespPath
+
+  $plist = Invoke-ApiSimple "GET" "$baseUrl/api/v1/processes" @{ "x-company-id"=$CompanyId; "x-role"="VIEWER" } $null
+  Assert-Status $plist.Status @("200") "T11 process list" $plist.RespPath
+  $proc = (Get-Content $plist.RespPath -Raw | ConvertFrom-Json).data | Where-Object { $_.code -eq $procCode } | Select-Object -First 1
+  if (-not $proc) { Write-Host "[FAIL] T11 process not found" -ForegroundColor Red; exit 1 }
+
+  $efile = New-JsonFileFromObj @{
+    name="SMOKE_Q_EQ"; code=$eqCode; processId=$proc.id;
+    commType="SERIAL"; commConfig=@{ port="COM1"; baudrate=9600; intervalSec=1 }; isActive=1
+  }
+  $er = Invoke-ApiSimple "POST" "$baseUrl/api/v1/equipments" @{ "x-company-id"=$CompanyId; "x-role"="OPERATOR" } $efile
+  Assert-Status $er.Status @("201","409") "T11 equipment ensure" $er.RespPath
+
+  $elist = Invoke-ApiSimple "GET" "$baseUrl/api/v1/equipments" @{ "x-company-id"=$CompanyId; "x-role"="VIEWER" } $null
+  Assert-Status $elist.Status @("200") "T11 equipment list" $elist.RespPath
+  $eq = (Get-Content $elist.RespPath -Raw | ConvertFrom-Json).data | Where-Object { $_.code -eq $eqCode } | Select-Object -First 1
+  if (-not $eq) { Write-Host "[FAIL] T11 equipment not found" -ForegroundColor Red; exit 1 }
+
+  $dfile = New-JsonFileFromObj @{ name="SMOKE_Q_DEF"; code=$defCode; processId=$proc.id }
+  $dr = Invoke-ApiSimple "POST" "$baseUrl/api/v1/defect-types" @{ "x-company-id"=$CompanyId; "x-role"="OPERATOR" } $dfile
+  Assert-Status $dr.Status @("201","409") "T11 defect-type ensure" $dr.RespPath
+
+  $dlist = Invoke-ApiSimple "GET" "$baseUrl/api/v1/defect-types" @{ "x-company-id"=$CompanyId; "x-role"="VIEWER" } $null
+  Assert-Status $dlist.Status @("200") "T11 defect-type list" $dlist.RespPath
+  $def = (Get-Content $dlist.RespPath -Raw | ConvertFrom-Json).data | Where-Object { $_.code -eq $defCode } | Select-Object -First 1
+  if (-not $def) { Write-Host "[FAIL] T11 defect-type not found" -ForegroundColor Red; exit 1 }
+
+  return @{
+    processId = $proc.id
+    equipmentId = $eq.id
+    defectTypeId = $def.id
+  }
+}
+
+function T11_CreateInspection {
+  param([string]$CompanyId, [string]$Role, [hashtable]$Body, [string[]]$Expected)
+  $f = New-JsonFileFromObj $Body
+  $resp = Invoke-ApiSimple "POST" "$baseUrl/api/v1/quality/inspections" @{ "x-company-id"=$CompanyId; "x-role"=$Role } $f
+  Assert-Status $resp.Status $Expected "T11 create inspection" $resp.RespPath
+  return $resp
+}
+
+function T11_ListInspections {
+  param([string]$CompanyId)
+  $resp = Invoke-ApiSimple "GET" "$baseUrl/api/v1/quality/inspections?limit=20" @{ "x-company-id"=$CompanyId; "x-role"="VIEWER" } $null
+  Assert-Status $resp.Status @("200") "T11 list inspections" $resp.RespPath
+  return (Get-Content $resp.RespPath -Raw | ConvertFrom-Json).data
+}
+
+function T11_AddDefectLine {
+  param([string]$CompanyId, [string]$Role, [int]$InspectionId, [int]$DefectTypeId, [double]$Qty, [string[]]$Expected)
+  $f = New-JsonFileFromObj @{ defectTypeId=$DefectTypeId; qty=$Qty; note="smoke" }
+  $resp = Invoke-ApiSimple "POST" "$baseUrl/api/v1/quality/inspections/$InspectionId/defects" @{ "x-company-id"=$CompanyId; "x-role"=$Role } $f
+  Assert-Status $resp.Status $Expected "T11 add defect line" $resp.RespPath
+  return $resp
+}
+
+Write-Host "[STEP] Ticket-11 준비: COMPANY-A/B 공정/설비/불량유형 확보" -ForegroundColor Cyan
+$qaA = T11_EnsureInspectionPrereqs -CompanyId $companyA
+$qaB = T11_EnsureInspectionPrereqs -CompanyId $companyB
+
+Write-Host "[STEP] T11 검사 등록 201/409" -ForegroundColor Cyan
+$inspNo = "QI-SMOKE-001"
+T11_CreateInspection -CompanyId $companyA -Role "OPERATOR" -Expected @("201","409") -Body @{
+  inspectionNo = $inspNo
+  inspectionType = "FINAL"
+  status = "PASS"
+  processId = $qaA.processId
+  equipmentId = $qaA.equipmentId
+  inspectedAt = (Get-Date).ToString("o")
+  inspectorName = "smoke"
+  note = "smoke"
+} | Out-Null
+
+Write-Host "[STEP] T11 VIEWER 검사 등록 차단 403" -ForegroundColor Cyan
+T11_CreateInspection -CompanyId $companyA -Role "VIEWER" -Expected @("403") -Body @{
+  inspectionNo = "QI-SMOKE-VIEW"
+  inspectionType = "FINAL"
+  status = "PASS"
+  processId = $qaA.processId
+} | Out-Null
+
+Write-Host "[STEP] T11 타사 processId 사용 400" -ForegroundColor Cyan
+T11_CreateInspection -CompanyId $companyA -Role "OPERATOR" -Expected @("400") -Body @{
+  inspectionNo = "QI-SMOKE-BADREF"
+  inspectionType = "FINAL"
+  status = "PASS"
+  processId = $qaB.processId
+} | Out-Null
+
+Write-Host "[STEP] T11 검사 불량 라인 등록 201/409 + 조회 200" -ForegroundColor Cyan
+$insps = T11_ListInspections -CompanyId $companyA
+$insp = ($insps | Where-Object { $_.inspectionNo -eq $inspNo } | Select-Object -First 1)
+if (-not $insp) { Write-Host "[FAIL] T11 inspection not found" -ForegroundColor Red; exit 1 }
+
+T11_AddDefectLine -CompanyId $companyA -Role "OPERATOR" -InspectionId $insp.id -DefectTypeId $qaA.defectTypeId -Qty 1 -Expected @("201","409") | Out-Null
+$linesResp = Invoke-ApiSimple "GET" "$baseUrl/api/v1/quality/inspections/$($insp.id)/defects" @{ "x-company-id"=$companyA; "x-role"="VIEWER" } $null
+Assert-Status $linesResp.Status @("200") "T11 defects list" $linesResp.RespPath
+
+Write-Host "[PASS] Ticket-11 Quality Inspections 스모크 완료" -ForegroundColor Green

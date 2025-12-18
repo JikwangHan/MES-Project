@@ -205,6 +205,56 @@ const init = () => {
     ON production_results (company_id, event_ts);
   `);
 
+  // 품질: 검사 헤더
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS quality_inspections (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      company_id TEXT NOT NULL,
+      inspection_no TEXT NOT NULL,
+      work_order_id INTEGER,
+      item_id INTEGER,
+      process_id INTEGER,
+      equipment_id INTEGER,
+      inspection_type TEXT NOT NULL,
+      status TEXT NOT NULL,
+      inspected_at TEXT DEFAULT (datetime('now')),
+      inspector_name TEXT,
+      note TEXT,
+      created_at TEXT DEFAULT (datetime('now')),
+      FOREIGN KEY (work_order_id) REFERENCES work_orders(id),
+      FOREIGN KEY (item_id) REFERENCES items(id),
+      FOREIGN KEY (process_id) REFERENCES processes(id),
+      FOREIGN KEY (equipment_id) REFERENCES equipments(id),
+      CONSTRAINT uniq_company_inspection_no UNIQUE (company_id, inspection_no)
+    );
+  `);
+
+  db.exec(`
+    CREATE INDEX IF NOT EXISTS idx_quality_inspections_company_inspected
+    ON quality_inspections (company_id, inspected_at);
+  `);
+
+  // 품질: 검사 불량 상세
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS quality_inspection_defects (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      company_id TEXT NOT NULL,
+      inspection_id INTEGER NOT NULL,
+      defect_type_id INTEGER NOT NULL,
+      qty REAL NOT NULL,
+      note TEXT,
+      created_at TEXT DEFAULT (datetime('now')),
+      FOREIGN KEY (inspection_id) REFERENCES quality_inspections(id),
+      FOREIGN KEY (defect_type_id) REFERENCES defect_types(id),
+      CONSTRAINT uniq_company_inspection_defect UNIQUE (company_id, inspection_id, defect_type_id)
+    );
+  `);
+
+  db.exec(`
+    CREATE INDEX IF NOT EXISTS idx_quality_defects_company_inspection
+    ON quality_inspection_defects (company_id, inspection_id);
+  `);
+
   // 감사 로그
   db.exec(`
     CREATE TABLE IF NOT EXISTS audit_logs (

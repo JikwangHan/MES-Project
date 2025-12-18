@@ -64,6 +64,38 @@ module.exports = {
     code: 'RESULT_QTY_INVALID',
     message: '실적 수량이 올바르지 않습니다.',
   },
+  QUALITY_INSPECTION_NO_DUPLICATE: {
+    code: 'QUALITY_INSPECTION_NO_DUPLICATE',
+    message: '동일한 검사번호가 이미 존재합니다.',
+  },
+  QUALITY_INSPECTION_TYPE_INVALID: {
+    code: 'QUALITY_INSPECTION_TYPE_INVALID',
+    message: 'inspectionType 값이 올바르지 않습니다.',
+  },
+  QUALITY_INSPECTION_STATUS_INVALID: {
+    code: 'QUALITY_INSPECTION_STATUS_INVALID',
+    message: 'status 값이 올바르지 않습니다.',
+  },
+  QUALITY_INSPECTION_REF_NOT_FOUND: {
+    code: 'QUALITY_INSPECTION_REF_NOT_FOUND',
+    message: '참조 정보(workOrder/item/process/equipment)가 유효하지 않습니다.',
+  },
+  QUALITY_INSPECTION_NOT_FOUND: {
+    code: 'QUALITY_INSPECTION_NOT_FOUND',
+    message: '검사 정보를 찾을 수 없습니다.',
+  },
+  QUALITY_DEFECT_QTY_INVALID: {
+    code: 'QUALITY_DEFECT_QTY_INVALID',
+    message: '불량 수량이 올바르지 않습니다.',
+  },
+  QUALITY_DEFECT_DUPLICATE: {
+    code: 'QUALITY_DEFECT_DUPLICATE',
+    message: '이미 동일한 불량 라인이 존재합니다.',
+  },
+  QUALITY_DEFECT_TYPE_NOT_FOUND: {
+    code: 'QUALITY_DEFECT_TYPE_NOT_FOUND',
+    message: '불량유형이 유효하지 않습니다.',
+  },
   TELEMETRY_LIMIT_INVALID: {
     code: 'TELEMETRY_LIMIT_INVALID',
     message: 'limit 값이 올바르지 않습니다.',
