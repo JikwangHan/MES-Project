@@ -16,5 +16,41 @@ module.exports = {
   DEFECT_PROCESS_NOT_FOUND: { code: 'DEFECT_PROCESS_NOT_FOUND', message: 'process_id가 존재하지 않습니다.' },
   PARTNER_CODE_DUPLICATE: { code: 'PARTNER_CODE_DUPLICATE', message: '동일 거래처 코드가 이미 존재합니다.' },
   PARTNER_TYPE_INVALID: { code: 'PARTNER_TYPE_INVALID', message: 'type 값이 올바르지 않습니다.' },
+  TELEMETRY_EQUIPMENT_CODE_REQUIRED: {
+    code: 'TELEMETRY_EQUIPMENT_CODE_REQUIRED',
+    message: 'equipmentCode는 필수입니다.',
+  },
+  TELEMETRY_EQUIPMENT_NOT_FOUND: {
+    code: 'TELEMETRY_EQUIPMENT_NOT_FOUND',
+    message: '설비를 찾을 수 없습니다.',
+  },
+  TELEMETRY_AUTH_REQUIRED: {
+    code: 'TELEMETRY_AUTH_REQUIRED',
+    message: '디바이스 인증 헤더가 필요합니다.',
+  },
+  TELEMETRY_TS_INVALID: {
+    code: 'TELEMETRY_TS_INVALID',
+    message: 'x-ts 헤더가 올바르지 않습니다.',
+  },
+  TELEMETRY_TS_EXPIRED: {
+    code: 'TELEMETRY_TS_EXPIRED',
+    message: '요청 시간이 허용 범위를 초과했습니다.',
+  },
+  TELEMETRY_DEVICE_KEY_INVALID: {
+    code: 'TELEMETRY_DEVICE_KEY_INVALID',
+    message: '디바이스 키가 유효하지 않습니다.',
+  },
+  TELEMETRY_SIGNATURE_INVALID: {
+    code: 'TELEMETRY_SIGNATURE_INVALID',
+    message: '서명이 올바르지 않습니다.',
+  },
+  TELEMETRY_NONCE_REPLAY: {
+    code: 'TELEMETRY_NONCE_REPLAY',
+    message: '이미 사용된 nonce 입니다.',
+  },
+  TELEMETRY_LIMIT_INVALID: {
+    code: 'TELEMETRY_LIMIT_INVALID',
+    message: 'limit 값이 올바르지 않습니다.',
+  },
   SERVER_ERROR: { code: 'SERVER_ERROR', message: '서버 오류가 발생했습니다.' },
 };

@@ -4,6 +4,21 @@ const Database = require('better-sqlite3');
 const dbPath = path.join(__dirname, '..', 'data', 'mes.db');
 const db = new Database(dbPath);
 
+const ensureEquipmentColumns = () => {
+  const columns = db.prepare(`PRAGMA table_info(equipments);`).all();
+  const names = columns.map((c) => c.name);
+  const addColumnIfMissing = (name, ddl) => {
+    if (!names.includes(name)) {
+      db.exec(`ALTER TABLE equipments ADD COLUMN ${ddl};`);
+    }
+  };
+  addColumnIfMissing('device_key_id', 'device_key_id TEXT');
+  addColumnIfMissing('device_key_secret_enc', 'device_key_secret_enc TEXT');
+  addColumnIfMissing('device_key_status', "device_key_status TEXT DEFAULT 'ACTIVE'");
+  addColumnIfMissing('device_key_issued_at', 'device_key_issued_at TEXT');
+  addColumnIfMissing('device_key_last_seen_at', 'device_key_last_seen_at TEXT');
+};
+
 const init = () => {
   // 기본 설정
   db.pragma('journal_mode = WAL');
@@ -94,6 +109,7 @@ const init = () => {
       CONSTRAINT uniq_company_equipment UNIQUE (company_id, code)
     );
   `);
+  ensureEquipmentColumns();
 
   // 기준정보: 불량유형
   db.exec(`
@@ -146,6 +162,50 @@ const init = () => {
       created_at TEXT DEFAULT (datetime('now'))
     );
   `);
+
+  // 텔레메트리 이벤트
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS telemetry_events (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      company_id TEXT NOT NULL,
+      equipment_id INTEGER NOT NULL,
+      equipment_code TEXT NOT NULL,
+      event_type TEXT NOT NULL,
+      event_ts TEXT NOT NULL,
+      payload_json TEXT NOT NULL,
+      received_at TEXT NOT NULL,
+      FOREIGN KEY (equipment_id) REFERENCES equipments(id)
+    );
+  `);
+
+  db.exec(`
+    CREATE INDEX IF NOT EXISTS idx_telemetry_company_ts
+    ON telemetry_events (company_id, event_ts);
+  `);
+
+  db.exec(`
+    CREATE INDEX IF NOT EXISTS idx_telemetry_company_equipment
+    ON telemetry_events (company_id, equipment_id);
+  `);
+
+  // 텔레메트리 nonce (리플레이 방지)
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS telemetry_nonces (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      company_id TEXT NOT NULL,
+      equipment_id INTEGER NOT NULL,
+      nonce TEXT NOT NULL,
+      ts INTEGER NOT NULL,
+      created_at TEXT NOT NULL,
+      FOREIGN KEY (equipment_id) REFERENCES equipments(id),
+      CONSTRAINT uniq_company_equipment_nonce UNIQUE (company_id, equipment_id, nonce)
+    );
+  `);
+
+  db.exec(`
+    CREATE INDEX IF NOT EXISTS idx_telemetry_nonce_company_equipment_ts
+    ON telemetry_nonces (company_id, equipment_id, ts);
+  `);
 };
 
 const insertAuditLog = ({ companyId, actorRole, action, entity, entityId, payload }) => {
@@ -163,4 +223,52 @@ const insertAuditLog = ({ companyId, actorRole, action, entity, entityId, payloa
   });
 };
 
-module.exports = { db, init, insertAuditLog };
+const getEquipmentByDeviceKey = (companyId, deviceKeyId) => {
+  if (!companyId || !deviceKeyId) return null;
+
+  const row = db
+    .prepare(
+      `SELECT
+         id,
+         company_id            AS companyId,
+         name,
+         code,
+         process_id            AS processId,
+         comm_type             AS commType,
+         comm_config_json      AS commConfigJson,
+         is_active             AS isActive,
+         device_key_id         AS deviceKeyId,
+         device_key_secret_enc AS deviceKeySecretEnc,
+         device_key_status     AS deviceKeyStatus,
+         device_key_issued_at  AS deviceKeyIssuedAt,
+         device_key_last_seen_at AS deviceKeyLastSeenAt,
+         created_at            AS createdAt
+       FROM equipments
+       WHERE company_id = @companyId
+         AND device_key_id = @deviceKeyId
+       LIMIT 1`
+    )
+    .get({ companyId, deviceKeyId });
+
+  if (!row) return null;
+
+  // telemetry.js는 snake_case 속성을 기대하므로 호환 형태로 반환
+  return {
+    id: row.id,
+    company_id: row.companyId,
+    name: row.name,
+    code: row.code,
+    process_id: row.processId,
+    comm_type: row.commType,
+    comm_config_json: row.commConfigJson,
+    is_active: row.isActive,
+    device_key_id: row.deviceKeyId,
+    device_key_secret_enc: row.deviceKeySecretEnc,
+    device_key_status: row.deviceKeyStatus,
+    device_key_issued_at: row.deviceKeyIssuedAt,
+    device_key_last_seen_at: row.deviceKeyLastSeenAt,
+    created_at: row.createdAt,
+  };
+};
+
+module.exports = { db, init, insertAuditLog, getEquipmentByDeviceKey };

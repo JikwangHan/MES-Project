@@ -3,6 +3,9 @@ const { db, insertAuditLog } = require('../db');
 const { ok, fail } = require('../utils/response');
 const { ensureNotViewer } = require('../middleware/auth');
 const ERR = require('../constants/errors');
+const { encryptSecret } = require('../utils/crypto');
+const { v4: uuidv4 } = require('uuid');
+const crypto = require('crypto');
 
 const router = express.Router();
 
@@ -134,6 +137,53 @@ router.get('/', (req, res) => {
     )
     .all(companyId);
   return res.json(ok(rows));
+});
+
+// POST /api/v1/equipments/:id/device-key
+router.post('/:id/device-key', ensureNotViewer, (req, res) => {
+  const companyId = req.companyId;
+  const role = req.userRole;
+  const equipmentId = Number(req.params.id);
+
+  const equipment = db
+    .prepare('SELECT id, company_id FROM equipments WHERE id = ?')
+    .get(equipmentId);
+
+  if (!equipment || equipment.company_id !== companyId) {
+    return res.status(404).json(fail(ERR.NOT_FOUND.code, ERR.NOT_FOUND.message));
+  }
+
+  const deviceKeyId = uuidv4();
+  const deviceSecret = crypto.randomBytes(32).toString('hex');
+  const encryptedSecret = encryptSecret(deviceSecret);
+  const issuedAt = new Date().toISOString();
+
+  db.prepare(
+    `UPDATE equipments
+     SET device_key_id = @deviceKeyId,
+         device_key_secret_enc = @encryptedSecret,
+         device_key_status = 'ACTIVE',
+         device_key_issued_at = @issuedAt,
+         device_key_last_seen_at = NULL
+     WHERE id = @equipmentId`
+  ).run({
+    deviceKeyId,
+    encryptedSecret,
+    issuedAt,
+    equipmentId,
+  });
+
+  insertAuditLog({
+    companyId,
+    actorRole: role,
+    action: 'UPDATE',
+    entity: 'equipments',
+    entityId: equipmentId,
+    payload: { deviceKeyId, issuedAt },
+  });
+
+  // secret은 1회만 노출
+  return res.status(201).json(ok({ deviceKeyId, deviceSecret, issuedAt }));
 });
 
 module.exports = router;

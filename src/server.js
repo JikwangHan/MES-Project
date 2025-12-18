@@ -9,6 +9,7 @@ const processRoutes = require('./routes/processes');
 const equipmentRoutes = require('./routes/equipments');
 const defectTypeRoutes = require('./routes/defectTypes');
 const partnerRoutes = require('./routes/partners');
+const telemetryRoutes = require('./routes/telemetry');
 const { ok, fail } = require('./utils/response');
 
 const app = express();
@@ -18,7 +19,14 @@ const PORT = process.env.PORT || 4000;
 init();
 
 // 기본 미들웨어
-app.use(express.json());
+app.use(
+  express.json({
+    verify: (req, _res, buf) => {
+      // Telemetry 서명 검증을 위해 원문 보관
+      req.rawBody = buf;
+    },
+  })
+);
 app.use(tenantMiddleware);
 app.use(attachRole);
 
@@ -30,6 +38,7 @@ app.use('/api/v1/processes', processRoutes);
 app.use('/api/v1/equipments', equipmentRoutes);
 app.use('/api/v1/defect-types', defectTypeRoutes);
 app.use('/api/v1/partners', partnerRoutes);
+app.use('/api/v1/telemetry', telemetryRoutes);
 
 app.get('/health', (_req, res) => res.json(ok({ status: 'ok' })));
 
