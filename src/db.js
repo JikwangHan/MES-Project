@@ -149,6 +149,62 @@ const init = () => {
     );
   `);
 
+  // 생산 실행: 작업지시
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS work_orders (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      company_id TEXT NOT NULL,
+      wo_no TEXT NOT NULL,
+      item_id INTEGER NOT NULL,
+      process_id INTEGER NOT NULL,
+      equipment_id INTEGER,
+      plan_qty REAL NOT NULL,
+      status TEXT NOT NULL,
+      scheduled_start_at TEXT,
+      scheduled_end_at TEXT,
+      created_at TEXT DEFAULT (datetime('now')),
+      FOREIGN KEY (item_id) REFERENCES items(id),
+      FOREIGN KEY (process_id) REFERENCES processes(id),
+      FOREIGN KEY (equipment_id) REFERENCES equipments(id),
+      CONSTRAINT uniq_company_wo UNIQUE (company_id, wo_no)
+    );
+  `);
+
+  db.exec(`
+    CREATE INDEX IF NOT EXISTS idx_work_orders_company_status
+    ON work_orders (company_id, status);
+  `);
+
+  db.exec(`
+    CREATE INDEX IF NOT EXISTS idx_work_orders_company_created
+    ON work_orders (company_id, created_at);
+  `);
+
+  // 생산 실행: 실적
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS production_results (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      company_id TEXT NOT NULL,
+      work_order_id INTEGER NOT NULL,
+      good_qty REAL NOT NULL,
+      defect_qty REAL NOT NULL,
+      event_ts TEXT NOT NULL,
+      note TEXT,
+      created_at TEXT DEFAULT (datetime('now')),
+      FOREIGN KEY (work_order_id) REFERENCES work_orders(id)
+    );
+  `);
+
+  db.exec(`
+    CREATE INDEX IF NOT EXISTS idx_results_company_wo
+    ON production_results (company_id, work_order_id);
+  `);
+
+  db.exec(`
+    CREATE INDEX IF NOT EXISTS idx_results_company_event
+    ON production_results (company_id, event_ts);
+  `);
+
   // 감사 로그
   db.exec(`
     CREATE TABLE IF NOT EXISTS audit_logs (

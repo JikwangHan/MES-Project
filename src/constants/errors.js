@@ -48,6 +48,22 @@ module.exports = {
     code: 'TELEMETRY_NONCE_REPLAY',
     message: '이미 사용된 nonce 입니다.',
   },
+  WORK_ORDER_NO_DUPLICATE: {
+    code: 'WORK_ORDER_NO_DUPLICATE',
+    message: '동일한 작업지시 번호가 이미 존재합니다.',
+  },
+  WORK_ORDER_REF_NOT_FOUND: {
+    code: 'WORK_ORDER_REF_NOT_FOUND',
+    message: '참조 정보(item/process/equipment)가 유효하지 않습니다.',
+  },
+  WORK_ORDER_STATUS_INVALID: {
+    code: 'WORK_ORDER_STATUS_INVALID',
+    message: '작업지시 상태 값이 올바르지 않습니다.',
+  },
+  RESULT_QTY_INVALID: {
+    code: 'RESULT_QTY_INVALID',
+    message: '실적 수량이 올바르지 않습니다.',
+  },
   TELEMETRY_LIMIT_INVALID: {
     code: 'TELEMETRY_LIMIT_INVALID',
     message: 'limit 값이 올바르지 않습니다.',
