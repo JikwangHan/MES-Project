@@ -271,4 +271,24 @@ const getEquipmentByDeviceKey = (companyId, deviceKeyId) => {
   };
 };
 
-module.exports = { db, init, insertAuditLog, getEquipmentByDeviceKey };
+const cleanupNonces = (cutoffEpochSec) => {
+  if (!Number.isInteger(cutoffEpochSec)) return 0;
+  const result = db
+    .prepare('DELETE FROM telemetry_nonces WHERE ts < ?')
+    .run(cutoffEpochSec);
+  return result.changes || 0;
+};
+
+const countNonces = () => {
+  const row = db.prepare('SELECT COUNT(1) AS cnt FROM telemetry_nonces').get();
+  return row ? row.cnt : 0;
+};
+
+module.exports = {
+  db,
+  init,
+  insertAuditLog,
+  getEquipmentByDeviceKey,
+  cleanupNonces,
+  countNonces,
+};

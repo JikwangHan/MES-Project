@@ -814,3 +814,82 @@ $resT9Bad = Invoke-CurlJsonAuth "POST" "$baseUrl/api/v1/telemetry/events" $compa
 Assert-Status $resT9Bad.Status @("401") "[T09-4] 서명 변조 차단(401)" $resT9Bad.RespFile
 
 Write-Host "[PASS] Ticket-09 Telemetry Auth 스모크 완료" -ForegroundColor Green
+
+# -----------------------------
+# Ticket-09.1 Smoke: Telemetry Ops (rotate/revoke/nonce cleanup)
+# -----------------------------
+Write-Host "`n[SMOKE] Ticket-09.1 Telemetry Ops 시작" -ForegroundColor Cyan
+
+if (-not $baseUrl)  { $baseUrl  = "http://localhost:4000" }
+if (-not $companyA) { $companyA = "COMPANY-A" }
+
+function Send-TelemetrySigned {
+  param(
+    [string]$CompanyId,
+    [string]$DeviceKeyId,
+    [string]$DeviceSecret,
+    [string]$EquipmentCode,
+    [int[]]$Expected
+  )
+
+  $bodyObj = @{
+    equipmentCode = $EquipmentCode
+    eventType = "STATUS"
+    payload = @{ state = "RUN"; speed = 10 }
+  }
+  $bodyCanonical = $bodyObj | ConvertTo-Json -Compress -Depth 6
+  $bodyHash = Sha256HexStr $bodyCanonical
+  $tsEpoch = [int][DateTimeOffset]::UtcNow.ToUnixTimeSeconds()
+  $nonce = ([Guid]::NewGuid().ToString("N"))
+  $canonical = "$CompanyId`n$DeviceKeyId`n$tsEpoch`n$nonce`n$bodyHash"
+  $signature = HmacSha256HexStr $DeviceSecret $canonical
+
+  $tmp = New-TempJsonFile "t09_1_tel_$tsEpoch" $bodyCanonical
+  $resp = Invoke-CurlJsonAuth "POST" "$baseUrl/api/v1/telemetry/events" $CompanyId "VIEWER" $tmp @{
+    "x-device-key" = $DeviceKeyId
+    "x-ts" = "$tsEpoch"
+    "x-nonce" = $nonce
+    "x-signature" = $signature
+  }
+  Assert-Status $resp.Status $Expected "[T09.1] telemetry signed" $resp.RespFile
+}
+
+# 1) rotate: 새 키 201, 이전 키 401
+$rotateRes1 = Invoke-CurlJsonAuth "POST" "$baseUrl/api/v1/equipments/$equipmentIdA9/device-key/rotate" $companyA "OPERATOR" $null @{}
+Assert-Status $rotateRes1.Status @("200","201") "[T09.1-1] device-key rotate(1)" $rotateRes1.RespFile
+$rotateJson1 = Get-Content $rotateRes1.RespFile -Raw | ConvertFrom-Json
+$newKeyId1 = $rotateJson1.data.deviceKeyId
+$newSecret1 = $rotateJson1.data.deviceKeySecret
+
+Send-TelemetrySigned -CompanyId $companyA -DeviceKeyId $newKeyId1 -DeviceSecret $newSecret1 -EquipmentCode $equipCodeA9 -Expected @(201)
+Write-Host "[PASS] Ticket-09.1 rotate(1) 새 키 201 확인" -ForegroundColor Green
+
+$oldKeyId = $newKeyId1
+$oldSecret = $newSecret1
+$rotateRes2 = Invoke-CurlJsonAuth "POST" "$baseUrl/api/v1/equipments/$equipmentIdA9/device-key/rotate" $companyA "OPERATOR" $null @{}
+Assert-Status $rotateRes2.Status @("200","201") "[T09.1-2] device-key rotate(2)" $rotateRes2.RespFile
+$rotateJson2 = Get-Content $rotateRes2.RespFile -Raw | ConvertFrom-Json
+$newKeyId2 = $rotateJson2.data.deviceKeyId
+$newSecret2 = $rotateJson2.data.deviceKeySecret
+
+Send-TelemetrySigned -CompanyId $companyA -DeviceKeyId $oldKeyId -DeviceSecret $oldSecret -EquipmentCode $equipCodeA9 -Expected @(401)
+Send-TelemetrySigned -CompanyId $companyA -DeviceKeyId $newKeyId2 -DeviceSecret $newSecret2 -EquipmentCode $equipCodeA9 -Expected @(201)
+Write-Host "[PASS] Ticket-09.1 rotate(2) 이전키 401 / 새키 201 확인" -ForegroundColor Green
+
+# 2) revoke: 폐기 후 401
+$revokeRes = Invoke-CurlJsonAuth "POST" "$baseUrl/api/v1/equipments/$equipmentIdA9/device-key/revoke" $companyA "OPERATOR" $null @{}
+Assert-Status $revokeRes.Status @("200") "[T09.1-3] device-key revoke" $revokeRes.RespFile
+Send-TelemetrySigned -CompanyId $companyA -DeviceKeyId $newKeyId2 -DeviceSecret $newSecret2 -EquipmentCode $equipCodeA9 -Expected @(401)
+Write-Host "[PASS] Ticket-09.1 revoke 후 401 확인" -ForegroundColor Green
+
+# 3) nonce cleanup: 오래된 nonce 삭제 확인 (node helper 사용)
+$cleanupJson = node -e "const {db,cleanupNonces,countNonces}=require('./src/db'); const eq=Number(process.argv[1]); const now=Math.floor(Date.now()/1000); db.prepare('INSERT INTO telemetry_nonces (company_id,equipment_id,nonce,ts,created_at) VALUES (?,?,?,?,?)').run('COMPANY-A', eq, 'SMOKE-NONCE-'+now, now-999999, new Date().toISOString()); const before=countNonces(); const removed=cleanupNonces(now-10); const after=countNonces(); console.log(JSON.stringify({before,removed,after}));" $equipmentIdA9
+$cleanup = $cleanupJson | ConvertFrom-Json
+if ($cleanup.removed -lt 1) {
+  Write-Host "[FAIL] Ticket-09.1 nonce cleanup 삭제 건수 부족" -ForegroundColor Red
+  Write-Host $cleanupJson
+  exit 1
+}
+Write-Host "[PASS] Ticket-09.1 nonce cleanup 삭제 확인" -ForegroundColor Green
+
+Write-Host "[PASS] Ticket-09.1 Telemetry Ops 스모크 완료" -ForegroundColor Green

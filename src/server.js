@@ -11,12 +11,18 @@ const defectTypeRoutes = require('./routes/defectTypes');
 const partnerRoutes = require('./routes/partners');
 const telemetryRoutes = require('./routes/telemetry');
 const { ok, fail } = require('./utils/response');
+const {
+  cleanupNoncesOnce,
+  startNonceCleanupScheduler,
+} = require('./jobs/nonceCleanup');
 
 const app = express();
 const PORT = process.env.PORT || 4000;
 
 // DB 초기화
 init();
+cleanupNoncesOnce();
+startNonceCleanupScheduler();
 
 // 기본 미들웨어
 app.use(
