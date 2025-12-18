@@ -255,6 +255,53 @@ const init = () => {
     ON quality_inspection_defects (company_id, inspection_id);
   `);
 
+  // 품질: 검사 항목 마스터
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS quality_check_items (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      company_id TEXT NOT NULL,
+      name TEXT NOT NULL,
+      code TEXT NOT NULL,
+      data_type TEXT NOT NULL,
+      unit TEXT,
+      lower_limit REAL,
+      upper_limit REAL,
+      target_value REAL,
+      is_required INTEGER DEFAULT 1,
+      created_at TEXT DEFAULT (datetime('now')),
+      CONSTRAINT uniq_company_check_item UNIQUE (company_id, code)
+    );
+  `);
+
+  db.exec(`
+    CREATE INDEX IF NOT EXISTS idx_quality_check_items_company_code
+    ON quality_check_items (company_id, code);
+  `);
+
+  // 품질: 검사 결과(측정값)
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS quality_inspection_results (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      company_id TEXT NOT NULL,
+      inspection_id INTEGER NOT NULL,
+      check_item_id INTEGER NOT NULL,
+      measured_value_num REAL,
+      measured_value_text TEXT,
+      measured_value_bool INTEGER,
+      judgement TEXT NOT NULL,
+      note TEXT,
+      created_at TEXT DEFAULT (datetime('now')),
+      FOREIGN KEY (inspection_id) REFERENCES quality_inspections(id),
+      FOREIGN KEY (check_item_id) REFERENCES quality_check_items(id),
+      CONSTRAINT uniq_company_inspection_check UNIQUE (company_id, inspection_id, check_item_id)
+    );
+  `);
+
+  db.exec(`
+    CREATE INDEX IF NOT EXISTS idx_quality_results_company_inspection
+    ON quality_inspection_results (company_id, inspection_id);
+  `);
+
   // 감사 로그
   db.exec(`
     CREATE TABLE IF NOT EXISTS audit_logs (

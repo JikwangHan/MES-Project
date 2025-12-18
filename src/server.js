@@ -12,6 +12,8 @@ const partnerRoutes = require('./routes/partners');
 const telemetryRoutes = require('./routes/telemetry');
 const workOrderRoutes = require('./routes/workOrders');
 const qualityRoutes = require('./routes/qualityInspections');
+const qualityCheckItemRoutes = require('./routes/qualityCheckItems');
+const qualityResultRoutes = require('./routes/qualityInspectionResults');
 const { ok, fail } = require('./utils/response');
 const {
   cleanupNoncesOnce,
@@ -49,6 +51,8 @@ app.use('/api/v1/partners', partnerRoutes);
 app.use('/api/v1/telemetry', telemetryRoutes);
 app.use('/api/v1/work-orders', workOrderRoutes);
 app.use('/api/v1/quality', qualityRoutes);
+app.use('/api/v1/quality', qualityCheckItemRoutes);
+app.use('/api/v1/quality', qualityResultRoutes);
 
 app.get('/health', (_req, res) => res.json(ok({ status: 'ok' })));
 
