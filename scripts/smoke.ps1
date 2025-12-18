@@ -1203,3 +1203,84 @@ $linesResp = Invoke-ApiSimple "GET" "$baseUrl/api/v1/quality/inspections/$($insp
 Assert-Status $linesResp.Status @("200") "T11 defects list" $linesResp.RespPath
 
 Write-Host "[PASS] Ticket-11 Quality Inspections 스모크 완료" -ForegroundColor Green
+
+# -----------------------------
+# Ticket-12 Smoke: Quality Check Items / Results
+# -----------------------------
+Write-Host "`n[SMOKE] Ticket-12 Quality Check Items 시작" -ForegroundColor Cyan
+
+if (-not $qaA) { $qaA = T11_EnsureInspectionPrereqs -CompanyId $companyA }
+if (-not $qaB) { $qaB = T11_EnsureInspectionPrereqs -CompanyId $companyB }
+
+Write-Host "[STEP] T12 검사 항목 등록 201/409" -ForegroundColor Cyan
+$checkFile = New-JsonFileFromObj @{
+  name="중량"
+  code="CHK-WEIGHT"
+  dataType="NUMBER"
+  unit="g"
+  lowerLimit=95
+  upperLimit=105
+  isRequired=1
+}
+$checkResp = Invoke-ApiSimple "POST" "$baseUrl/api/v1/quality/check-items" @{ "x-company-id"=$companyA; "x-role"="OPERATOR" } $checkFile
+Assert-Status $checkResp.Status @("201","409") "T12 check-item create" $checkResp.RespPath
+
+Write-Host "[STEP] T12 VIEWER 검사 항목 등록 차단 403" -ForegroundColor Cyan
+$checkFile2 = New-JsonFileFromObj @{
+  name="염도"
+  code=("CHK-SALT-" + (Get-Random))
+  dataType="NUMBER"
+  unit="pct"
+  lowerLimit=2
+  upperLimit=4
+  isRequired=1
+}
+$checkResp2 = Invoke-ApiSimple "POST" "$baseUrl/api/v1/quality/check-items" @{ "x-company-id"=$companyA; "x-role"="VIEWER" } $checkFile2
+Assert-Status $checkResp2.Status @("403") "T12 check-item viewer" $checkResp2.RespPath
+
+Write-Host "[STEP] T12 타사 검사 항목 등록(준비용)" -ForegroundColor Cyan
+$checkFileB = New-JsonFileFromObj @{
+  name="타사용 중량"
+  code="CHK-WEIGHT-B"
+  dataType="NUMBER"
+  unit="g"
+  lowerLimit=95
+  upperLimit=105
+  isRequired=1
+}
+$checkRespB = Invoke-ApiSimple "POST" "$baseUrl/api/v1/quality/check-items" @{ "x-company-id"=$companyB; "x-role"="OPERATOR" } $checkFileB
+Assert-Status $checkRespB.Status @("201","409") "T12 check-item companyB" $checkRespB.RespPath
+
+Write-Host "[STEP] T12 검사 생성(있으면 재사용)" -ForegroundColor Cyan
+$inspNo12 = "QI-SMOKE-12-001"
+T11_CreateInspection -CompanyId $companyA -Role "OPERATOR" -Expected @("201","409") -Body @{
+  inspectionNo = $inspNo12
+  inspectionType = "FINAL"
+  status = "PASS"
+  processId = $qaA.processId
+  equipmentId = $qaA.equipmentId
+  inspectedAt = (Get-Date).ToString("o")
+} | Out-Null
+
+$insps12 = T11_ListInspections -CompanyId $companyA
+$insp12 = ($insps12 | Where-Object { $_.inspectionNo -eq $inspNo12 } | Select-Object -First 1)
+if (-not $insp12) { Write-Host "[FAIL] T12 inspection not found" -ForegroundColor Red; exit 1 }
+
+Write-Host "[STEP] T12 검사 결과 등록 201/409 (범위 초과)" -ForegroundColor Cyan
+$resFile12 = New-JsonFileFromObj @{
+  checkItemCode="CHK-WEIGHT"
+  measuredValue=200
+  note="범위 초과 스모크"
+}
+$resResp12 = Invoke-ApiSimple "POST" "$baseUrl/api/v1/quality/inspections/$($insp12.id)/results" @{ "x-company-id"=$companyA; "x-role"="OPERATOR" } $resFile12
+Assert-Status $resResp12.Status @("201","409") "T12 result create" $resResp12.RespPath
+
+Write-Host "[STEP] T12 타사 검사 항목 결과 등록 400" -ForegroundColor Cyan
+$resFile12B = New-JsonFileFromObj @{
+  checkItemCode="CHK-WEIGHT-B"
+  measuredValue=100
+}
+$resResp12B = Invoke-ApiSimple "POST" "$baseUrl/api/v1/quality/inspections/$($insp12.id)/results" @{ "x-company-id"=$companyA; "x-role"="OPERATOR" } $resFile12B
+Assert-Status $resResp12B.Status @("400") "T12 result cross-tenant" $resResp12B.RespPath
+
+Write-Host "[PASS] Ticket-12 Quality Check Items 스모크 완료" -ForegroundColor Green

@@ -342,14 +342,63 @@ Ticket-01과 같은 패턴으로 바로 테스트할 수 있습니다.
 6. 감사 로그 확인
    - `audit_logs`에서 `entity=quality_inspections`와 `quality_inspection_defects`의 CREATE/FAIL 기록 확인 가능.
 
-## 14) 자주 쓰는 Git 명령 (초보자용)
+## 14) Ticket-12 품질 검사 항목 상세(측정값/판정) API 실행하기
+검사 항목 마스터와 검사 결과(측정값/판정) 기록 API입니다.
+
+1. 검사 항목 등록 (OPERATOR)
+   ```powershell
+   curl.exe -X POST "http://localhost:4000/api/v1/quality/check-items" ^
+     -H "Content-Type: application/json" ^
+     -H "x-company-id: COMPANY-A" ^
+     -H "x-role: OPERATOR" ^
+     -d "{\"name\":\"중량\",\"code\":\"CHK-WEIGHT\",\"dataType\":\"NUMBER\",\"unit\":\"g\",\"lowerLimit\":95,\"upperLimit\":105,\"isRequired\":1}"
+   ```
+   - 같은 회사에서 code 중복 → 409(QUALITY_CHECK_ITEM_CODE_DUPLICATE)
+2. 검사 항목 조회 (VIEWER도 가능)
+   ```powershell
+   curl.exe -X GET "http://localhost:4000/api/v1/quality/check-items" ^
+     -H "x-company-id: COMPANY-A" ^
+     -H "x-role: VIEWER"
+   ```
+3. VIEWER 등록 차단 (403)
+   ```powershell
+   curl.exe -X POST "http://localhost:4000/api/v1/quality/check-items" ^
+     -H "Content-Type: application/json" ^
+     -H "x-company-id: COMPANY-A" ^
+     -H "x-role: VIEWER" ^
+     -d "{\"name\":\"염도\",\"code\":\"CHK-SALT\",\"dataType\":\"NUMBER\",\"unit\":\"pct\",\"lowerLimit\":2,\"upperLimit\":4,\"isRequired\":1}"
+   ```
+4. 검사 결과 등록 (측정값이 규격 밖 → FAIL 판정)
+   ```powershell
+   curl.exe -X POST "http://localhost:4000/api/v1/quality/inspections/1/results" ^
+     -H "Content-Type: application/json" ^
+     -H "x-company-id: COMPANY-A" ^
+     -H "x-role: OPERATOR" ^
+     -d "{\"checkItemCode\":\"CHK-WEIGHT\",\"measuredValue\":200,\"note\":\"범위 초과 테스트\"}"
+   ```
+5. 검사 결과 조회
+   ```powershell
+   curl.exe -X GET "http://localhost:4000/api/v1/quality/inspections/1/results?limit=20" ^
+     -H "x-company-id: COMPANY-A" ^
+     -H "x-role: VIEWER"
+   ```
+6. 타사 검사 항목으로 결과 등록(400)
+   ```powershell
+   curl.exe -X POST "http://localhost:4000/api/v1/quality/inspections/1/results" ^
+     -H "Content-Type: application/json" ^
+     -H "x-company-id: COMPANY-A" ^
+     -H "x-role: OPERATOR" ^
+     -d "{\"checkItemCode\":\"CHK-WEIGHT-B\",\"measuredValue\":100}"
+   ```
+
+## 15) 자주 쓰는 Git 명령 (초보자용)
  - 변경 사항 확인: `git status`
  - 파일 추가/갱신 상태 확인: `git status -sb` (요약)
  - 새 파일 스테이징: `git add 파일명`
  - 커밋 만들기: `git commit -m "메시지"`
  - GitHub로 올리기: `git push origin main` (처음 푸시하는 경우 브랜치 이름을 확인하세요. 기본은 `main`)
 
-## 15) 다음 단계 제안
+## 16) 다음 단계 제안
  - 프로젝트 목표와 요구사항을 정리한 문서 추가 (예: `docs/requirements.md`)
  - 백엔드/프론트엔드 선택 후 폴더 구조 잡기 (예: `backend/`, `frontend/`)
  - 테스트 자동화 도입 (예: Jest, Vitest, Pytest 등 스택에 맞춰 선택)
