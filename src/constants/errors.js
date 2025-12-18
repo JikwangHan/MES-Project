@@ -96,6 +96,26 @@ module.exports = {
     code: 'QUALITY_DEFECT_TYPE_NOT_FOUND',
     message: '불량유형이 유효하지 않습니다.',
   },
+  QUALITY_CHECK_ITEM_CODE_DUPLICATE: {
+    code: 'QUALITY_CHECK_ITEM_CODE_DUPLICATE',
+    message: '동일한 검사 항목 코드가 이미 존재합니다.',
+  },
+  QUALITY_CHECK_ITEM_TYPE_INVALID: {
+    code: 'QUALITY_CHECK_ITEM_TYPE_INVALID',
+    message: '검사 항목 타입 값이 올바르지 않습니다.',
+  },
+  QUALITY_CHECK_ITEM_NOT_FOUND: {
+    code: 'QUALITY_CHECK_ITEM_NOT_FOUND',
+    message: '검사 항목을 찾을 수 없습니다.',
+  },
+  QUALITY_RESULT_DUPLICATE: {
+    code: 'QUALITY_RESULT_DUPLICATE',
+    message: '이미 동일한 검사 결과가 존재합니다.',
+  },
+  QUALITY_RESULT_VALUE_INVALID: {
+    code: 'QUALITY_RESULT_VALUE_INVALID',
+    message: '측정값이 올바르지 않습니다.',
+  },
   TELEMETRY_LIMIT_INVALID: {
     code: 'TELEMETRY_LIMIT_INVALID',
     message: 'limit 값이 올바르지 않습니다.',
