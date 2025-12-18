@@ -140,6 +140,22 @@ module.exports = {
     code: 'LOT_TRACE_INVALID',
     message: 'trace 파라미터가 올바르지 않습니다.',
   },
+  REPORT_DATE_INVALID: {
+    code: 'REPORT_DATE_INVALID',
+    message: '날짜 형식이 올바르지 않습니다. (YYYY-MM-DD)',
+  },
+  REPORT_RANGE_INVALID: {
+    code: 'REPORT_RANGE_INVALID',
+    message: '날짜 범위가 올바르지 않습니다.',
+  },
+  REPORT_RANGE_TOO_LARGE: {
+    code: 'REPORT_RANGE_TOO_LARGE',
+    message: '조회 기간이 너무 깁니다.',
+  },
+  REPORT_LIMIT_INVALID: {
+    code: 'REPORT_LIMIT_INVALID',
+    message: 'limit 값이 올바르지 않습니다.',
+  },
   WO_LOT_LINK_DUPLICATE: {
     code: 'WO_LOT_LINK_DUPLICATE',
     message: '작업지시와 LOT 링크가 이미 존재합니다.',
