@@ -25,3 +25,8 @@ data/
 *.swo
 ~$*
 *.bak
+
+# ERD 산출물(이미지/벡터)
+docs/erd/*.png
+docs/erd/*.pdf
+docs/erd/*.svg
