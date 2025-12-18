@@ -19,6 +19,17 @@ const ensureEquipmentColumns = () => {
   addColumnIfMissing('device_key_last_seen_at', 'device_key_last_seen_at TEXT');
 };
 
+const ensureQualityInspectionColumns = () => {
+  const columns = db.prepare(`PRAGMA table_info(quality_inspections);`).all();
+  const names = columns.map((c) => c.name);
+  const addColumnIfMissing = (name, ddl) => {
+    if (!names.includes(name)) {
+      db.exec(`ALTER TABLE quality_inspections ADD COLUMN ${ddl};`);
+    }
+  };
+  addColumnIfMissing('lot_id', 'lot_id INTEGER');
+};
+
 const init = () => {
   // 기본 설정
   db.pragma('journal_mode = WAL');
@@ -228,6 +239,7 @@ const init = () => {
       CONSTRAINT uniq_company_inspection_no UNIQUE (company_id, inspection_no)
     );
   `);
+  ensureQualityInspectionColumns();
 
   db.exec(`
     CREATE INDEX IF NOT EXISTS idx_quality_inspections_company_inspected
@@ -300,6 +312,84 @@ const init = () => {
   db.exec(`
     CREATE INDEX IF NOT EXISTS idx_quality_results_company_inspection
     ON quality_inspection_results (company_id, inspection_id);
+  `);
+
+  // LOT: 마스터
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS lots (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      company_id TEXT NOT NULL,
+      lot_no TEXT NOT NULL,
+      item_id INTEGER NOT NULL,
+      work_order_id INTEGER,
+      parent_lot_id INTEGER,
+      qty REAL NOT NULL DEFAULT 0,
+      unit TEXT NOT NULL DEFAULT 'EA',
+      status TEXT NOT NULL DEFAULT 'CREATED',
+      produced_at TEXT,
+      notes TEXT,
+      created_at TEXT NOT NULL DEFAULT (datetime('now')),
+      FOREIGN KEY (item_id) REFERENCES items(id),
+      FOREIGN KEY (work_order_id) REFERENCES work_orders(id),
+      FOREIGN KEY (parent_lot_id) REFERENCES lots(id),
+      CONSTRAINT uniq_company_lot_no UNIQUE (company_id, lot_no)
+    );
+  `);
+
+  db.exec(`
+    CREATE INDEX IF NOT EXISTS idx_lots_company_item
+    ON lots (company_id, item_id);
+  `);
+
+  db.exec(`
+    CREATE INDEX IF NOT EXISTS idx_lots_company_created
+    ON lots (company_id, created_at);
+  `);
+
+  // LOT 이벤트(선택)
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS lot_events (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      company_id TEXT NOT NULL,
+      lot_id INTEGER NOT NULL,
+      event_type TEXT NOT NULL,
+      qty REAL,
+      unit TEXT,
+      ref_entity TEXT,
+      ref_id INTEGER,
+      event_ts TEXT NOT NULL,
+      created_at TEXT NOT NULL DEFAULT (datetime('now')),
+      FOREIGN KEY (lot_id) REFERENCES lots(id)
+    );
+  `);
+
+  db.exec(`
+    CREATE INDEX IF NOT EXISTS idx_lot_events_company_ts
+    ON lot_events (company_id, event_ts);
+  `);
+
+  db.exec(`
+    CREATE INDEX IF NOT EXISTS idx_lot_events_company_lot
+    ON lot_events (company_id, lot_id);
+  `);
+
+  // LOT: 작업지시 연계
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS work_order_lots (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      company_id TEXT NOT NULL,
+      work_order_id INTEGER NOT NULL,
+      lot_id INTEGER NOT NULL,
+      created_at TEXT NOT NULL DEFAULT (datetime('now')),
+      FOREIGN KEY (work_order_id) REFERENCES work_orders(id),
+      FOREIGN KEY (lot_id) REFERENCES lots(id),
+      CONSTRAINT uniq_company_wo_lot UNIQUE (company_id, work_order_id, lot_id)
+    );
+  `);
+
+  db.exec(`
+    CREATE INDEX IF NOT EXISTS idx_work_order_lots_company
+    ON work_order_lots (company_id, work_order_id);
   `);
 
   // 감사 로그

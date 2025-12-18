@@ -1284,3 +1284,196 @@ $resResp12B = Invoke-ApiSimple "POST" "$baseUrl/api/v1/quality/inspections/$($in
 Assert-Status $resResp12B.Status @("400") "T12 result cross-tenant" $resResp12B.RespPath
 
 Write-Host "[PASS] Ticket-12 Quality Check Items 스모크 완료" -ForegroundColor Green
+
+# ---------------------------
+# Ticket-13 Smoke: LOT Trace
+# ---------------------------
+Write-Host "`n[SMOKE] Ticket-13 LOT Trace 시작" -ForegroundColor Cyan
+
+function Smoke13_Print([string]$msg) { Write-Host $msg }
+
+function Smoke13_AssertOneOf([int]$actual, [int[]]$expected, [string]$label) {
+  if ($expected -contains $actual) {
+    Smoke13_Print "[PASS] $label ($actual)"
+  } else {
+    throw "[FAIL] $label (expected: $($expected -join ', '), actual: $actual)"
+  }
+}
+
+function Smoke13_TryJson([string]$raw) {
+  if (-not $raw) { return $null }
+  try { return ($raw | ConvertFrom-Json -ErrorAction Stop) } catch { return $null }
+}
+
+function Smoke13_GetData($jsonObj) {
+  if ($null -eq $jsonObj) { return $null }
+  if ($jsonObj.PSObject.Properties.Name -contains "data") { return $jsonObj.data }
+  return $jsonObj
+}
+
+function Smoke13_Curl([string]$method, [string]$url, [hashtable]$headers, [object]$bodyObj) {
+  $out = Join-Path $env:TEMP ("smoke13_" + [guid]::NewGuid().ToString() + ".out.json")
+  $dataFile = $null
+  $args = @("-s", "-o", $out, "-w", "%{http_code}", "-X", $method)
+
+  foreach ($k in $headers.Keys) {
+    $args += @("-H", "${k}: $($headers[$k])")
+  }
+
+  if ($null -ne $bodyObj) {
+    $dataFile = Join-Path $env:TEMP ("smoke13_" + [guid]::NewGuid().ToString() + ".body.json")
+    $json = ($bodyObj | ConvertTo-Json -Depth 50 -Compress)
+    Set-Content -LiteralPath $dataFile -Value $json -Encoding utf8
+    $args += @("--data-binary", "@$dataFile")
+  }
+
+  $statusRaw = & curl.exe @args $url
+  $status = 0
+  try { $status = [int]$statusRaw } catch { $status = 0 }
+
+  $body = ""
+  if (Test-Path $out) { $body = Get-Content $out -Raw -ErrorAction SilentlyContinue }
+
+  if ($dataFile -and (Test-Path $dataFile)) { Remove-Item $dataFile -Force -ErrorAction SilentlyContinue }
+  if (Test-Path $out) { Remove-Item $out -Force -ErrorAction SilentlyContinue }
+
+  return @{ Status = $status; Body = $body }
+}
+
+function Smoke13_EnsureItemCategory([string]$baseUrl, [string]$companyId, [string]$role, [string]$code, [string]$name) {
+  $h = @{ "Content-Type"="application/json"; "x-company-id"=$companyId; "x-role"=$role }
+  $r = Smoke13_Curl "POST" "$baseUrl/api/v1/item-categories" $h @{ code=$code; name=$name }
+  Smoke13_AssertOneOf $r.Status @(201,409) "Ticket-13 pre: item-category upsert"
+
+  $q = Smoke13_Curl "GET" "$baseUrl/api/v1/item-categories" @{ "x-company-id"=$companyId; "x-role"="VIEWER" } $null
+  Smoke13_AssertOneOf $q.Status @(200) "Ticket-13 pre: item-category list"
+
+  $j = Smoke13_TryJson $q.Body
+  $data = Smoke13_GetData $j
+  $row = $data | Where-Object { $_.code -eq $code } | Select-Object -First 1
+  if (-not $row) { throw "[FAIL] Ticket-13 pre: cannot find category by code=$code" }
+  return $row.id
+}
+
+function Smoke13_EnsureItem([string]$baseUrl, [string]$companyId, [string]$role, [int]$categoryId, [string]$code, [string]$name) {
+  $h = @{ "Content-Type"="application/json"; "x-company-id"=$companyId; "x-role"=$role }
+  $r = Smoke13_Curl "POST" "$baseUrl/api/v1/items" $h @{ categoryId=$categoryId; code=$code; name=$name }
+  Smoke13_AssertOneOf $r.Status @(201,409) "Ticket-13 pre: item upsert"
+
+  $q = Smoke13_Curl "GET" "$baseUrl/api/v1/items" @{ "x-company-id"=$companyId; "x-role"="VIEWER" } $null
+  Smoke13_AssertOneOf $q.Status @(200) "Ticket-13 pre: item list"
+
+  $j = Smoke13_TryJson $q.Body
+  $data = Smoke13_GetData $j
+  $row = $data | Where-Object { $_.code -eq $code } | Select-Object -First 1
+  if (-not $row) { throw "[FAIL] Ticket-13 pre: cannot find item by code=$code" }
+  return $row.id
+}
+
+function Smoke13_CreateLot([string]$baseUrl, [string]$companyId, [string]$role, [object]$payload) {
+  $h = @{ "Content-Type"="application/json"; "x-company-id"=$companyId; "x-role"=$role }
+  return Smoke13_Curl "POST" "$baseUrl/api/v1/lots" $h $payload
+}
+
+function Smoke13_GetTrace([string]$baseUrl, [string]$companyId, [string]$lotNo) {
+  $h = @{ "x-company-id"=$companyId; "x-role"="VIEWER" }
+  return Smoke13_Curl "GET" "$baseUrl/api/v1/lots/$lotNo/trace?direction=down&depth=3" $h $null
+}
+
+$Smoke13_BaseUrl = $env:SMOKE_BASE_URL
+if (-not $Smoke13_BaseUrl) { $Smoke13_BaseUrl = "http://localhost:4000" }
+
+$catA = Smoke13_EnsureItemCategory $Smoke13_BaseUrl "COMPANY-A" "OPERATOR" "CAT-LOT" "LOT용 카테고리"
+$itemA = Smoke13_EnsureItem $Smoke13_BaseUrl "COMPANY-A" "OPERATOR" $catA "ITEM-LOT-A" "LOT 테스트 품목 A"
+
+$catB = Smoke13_EnsureItemCategory $Smoke13_BaseUrl "COMPANY-B" "OPERATOR" "CAT-LOT" "LOT용 카테고리"
+$itemB = Smoke13_EnsureItem $Smoke13_BaseUrl "COMPANY-B" "OPERATOR" $catB "ITEM-LOT-B" "LOT 테스트 품목 B"
+
+# 1) LOT 생성 201/409
+$lotNoA = "LOT-A-" + (Get-Date -Format "yyyyMMddHHmmss")
+$r1 = Smoke13_CreateLot $Smoke13_BaseUrl "COMPANY-A" "OPERATOR" @{ lotNo=$lotNoA; itemId=$itemA; qty=10; unit="EA"; status="CREATED" }
+Smoke13_AssertOneOf $r1.Status @(201,409) "Ticket-13A: LOT 생성(201/409)"
+
+# 2) VIEWER 생성 차단 403
+$lotNoViewer = "LOT-V-" + (Get-Date -Format "yyyyMMddHHmmss")
+$r2 = Smoke13_CreateLot $Smoke13_BaseUrl "COMPANY-A" "VIEWER" @{ lotNo=$lotNoViewer; itemId=$itemA; qty=1; unit="EA"; status="CREATED" }
+Smoke13_AssertOneOf $r2.Status @(403) "Ticket-13A: VIEWER 생성 차단(403)"
+
+# 3) 잘못된 itemId 400
+$lotNoBadItem = "LOT-BI-" + (Get-Date -Format "yyyyMMddHHmmss")
+$r3 = Smoke13_CreateLot $Smoke13_BaseUrl "COMPANY-A" "OPERATOR" @{ lotNo=$lotNoBadItem; itemId=999999; qty=1; unit="EA"; status="CREATED" }
+Smoke13_AssertOneOf $r3.Status @(400) "Ticket-13A: itemId 없음/타사 400"
+
+# 4) 자식 LOT 생성 201/409
+$childLotNo = "LOT-CH-" + (Get-Date -Format "yyyyMMddHHmmss")
+$r4 = Smoke13_CreateLot $Smoke13_BaseUrl "COMPANY-A" "OPERATOR" @{ lotNo=$childLotNo; itemId=$itemA; parentLotNo=$lotNoA; qty=5; unit="EA"; status="CREATED" }
+Smoke13_AssertOneOf $r4.Status @(201,409) "Ticket-13B: 자식 LOT 생성(201/409)"
+
+# 5) 타사 parentLotNo 차단 400
+$parentLotB = "LOT-B-" + (Get-Date -Format "yyyyMMddHHmmss")
+$upB = Smoke13_CreateLot $Smoke13_BaseUrl "COMPANY-B" "OPERATOR" @{ lotNo=$parentLotB; itemId=$itemB; qty=1; unit="EA"; status="CREATED" }
+Smoke13_AssertOneOf $upB.Status @(201,409) "Ticket-13 pre: COMPANY-B LOT 생성"
+$badChild = "LOT-XTEN-" + (Get-Date -Format "yyyyMMddHHmmss")
+$r5 = Smoke13_CreateLot $Smoke13_BaseUrl "COMPANY-A" "OPERATOR" @{ lotNo=$badChild; itemId=$itemA; parentLotNo=$parentLotB; qty=1; unit="EA"; status="CREATED" }
+Smoke13_AssertOneOf $r5.Status @(400) "Ticket-13B: 타사 parentLotNo 차단 400"
+
+# 6) Trace 200
+$t = Smoke13_GetTrace $Smoke13_BaseUrl "COMPANY-A" $lotNoA
+Smoke13_AssertOneOf $t.Status @(200) "Ticket-13B: trace 조회(200)"
+
+Smoke13_Print "[PASS] Ticket-13 LOT Trace 스모크 완료"
+
+# ---------------------------
+# Ticket-13.1 Smoke: Work Order - LOT Link
+# ---------------------------
+Write-Host "`n[SMOKE] Ticket-13.1 WorkOrder-LOT Link 시작" -ForegroundColor Cyan
+
+Write-Host "[STEP] T13.1 작업지시/LOT 준비 (COMPANY-A)" -ForegroundColor Cyan
+$itemLinkA = Ensure-Item -CompanyId $companyA -Code "SMOKE-ITEM-LINK-A"
+$procLinkA = Ensure-Process -CompanyId $companyA -ProcCode "SMOKE-PROC-LINK-A"
+$eqLinkA = Ensure-Equipment -CompanyId $companyA -EqCode "SMOKE-EQ-LINK-A" -ProcessId $procLinkA
+
+$woNoLink = "WO-LINK-" + (Get-Date -Format "yyyyMMddHHmmss")
+$woFileLink = New-JsonFileFromObj @{ woNo=$woNoLink; itemId=$itemLinkA; processId=$procLinkA; equipmentId=$eqLinkA; planQty=1; status="PLANNED" }
+$woRespLink = Invoke-ApiSimple "POST" "$baseUrl/api/v1/work-orders" @{ "x-company-id"=$companyA; "x-role"="OPERATOR" } $woFileLink
+Assert-Status $woRespLink.Status @("201","409") "T13.1 work-order create" $woRespLink.RespPath
+
+$woListLink = Invoke-ApiSimple "GET" "$baseUrl/api/v1/work-orders?limit=20" @{ "x-company-id"=$companyA; "x-role"="VIEWER" } $null
+Assert-Status $woListLink.Status @("200") "T13.1 work-order list" $woListLink.RespPath
+$woLink = (Get-Content $woListLink.RespPath -Raw | ConvertFrom-Json).data | Where-Object { $_.woNo -eq $woNoLink } | Select-Object -First 1
+if (-not $woLink) { Write-Host "[FAIL] T13.1 work-order not found" -ForegroundColor Red; exit 1 }
+
+$lotNoLink = "LOT-LINK-" + (Get-Date -Format "yyyyMMddHHmmss")
+$lotFileLink = New-JsonFileFromObj @{ lotNo=$lotNoLink; itemId=$itemLinkA; qty=1; unit="EA"; status="CREATED" }
+$lotRespLink = Invoke-ApiSimple "POST" "$baseUrl/api/v1/lots" @{ "x-company-id"=$companyA; "x-role"="OPERATOR" } $lotFileLink
+Assert-Status $lotRespLink.Status @("201","409") "T13.1 lot create" $lotRespLink.RespPath
+
+$lotListLink = Invoke-ApiSimple "GET" "$baseUrl/api/v1/lots?lotNo=$lotNoLink" @{ "x-company-id"=$companyA; "x-role"="VIEWER" } $null
+Assert-Status $lotListLink.Status @("200") "T13.1 lot list" $lotListLink.RespPath
+$lotLink = (Get-Content $lotListLink.RespPath -Raw | ConvertFrom-Json).data | Select-Object -First 1
+if (-not $lotLink) { Write-Host "[FAIL] T13.1 lot not found" -ForegroundColor Red; exit 1 }
+
+Write-Host "[STEP] T13.1 링크 생성 201/409" -ForegroundColor Cyan
+$linkResp = Invoke-ApiSimple "POST" "$baseUrl/api/v1/work-orders/$($woLink.id)/lots/$($lotLink.id)/link" @{ "x-company-id"=$companyA; "x-role"="OPERATOR" } $null
+Assert-Status $linkResp.Status @("201","409") "T13.1 link create" $linkResp.RespPath
+
+Write-Host "[STEP] T13.1 VIEWER 차단 403" -ForegroundColor Cyan
+$linkRespViewer = Invoke-ApiSimple "POST" "$baseUrl/api/v1/work-orders/$($woLink.id)/lots/$($lotLink.id)/link" @{ "x-company-id"=$companyA; "x-role"="VIEWER" } $null
+Assert-Status $linkRespViewer.Status @("403") "T13.1 link viewer" $linkRespViewer.RespPath
+
+Write-Host "[STEP] T13.1 타사 LOT 링크 400" -ForegroundColor Cyan
+$itemLinkB = Ensure-Item -CompanyId $companyB -Code "SMOKE-ITEM-LINK-B"
+$lotNoLinkB = "LOT-LINK-B-" + (Get-Date -Format "yyyyMMddHHmmss")
+$lotFileLinkB = New-JsonFileFromObj @{ lotNo=$lotNoLinkB; itemId=$itemLinkB; qty=1; unit="EA"; status="CREATED" }
+$lotRespLinkB = Invoke-ApiSimple "POST" "$baseUrl/api/v1/lots" @{ "x-company-id"=$companyB; "x-role"="OPERATOR" } $lotFileLinkB
+Assert-Status $lotRespLinkB.Status @("201","409") "T13.1 lot create B" $lotRespLinkB.RespPath
+
+$lotListLinkB = Invoke-ApiSimple "GET" "$baseUrl/api/v1/lots?lotNo=$lotNoLinkB" @{ "x-company-id"=$companyB; "x-role"="VIEWER" } $null
+Assert-Status $lotListLinkB.Status @("200") "T13.1 lot list B" $lotListLinkB.RespPath
+$lotLinkB = (Get-Content $lotListLinkB.RespPath -Raw | ConvertFrom-Json).data | Select-Object -First 1
+if (-not $lotLinkB) { Write-Host "[FAIL] T13.1 lot B not found" -ForegroundColor Red; exit 1 }
+
+$linkRespBad = Invoke-ApiSimple "POST" "$baseUrl/api/v1/work-orders/$($woLink.id)/lots/$($lotLinkB.id)/link" @{ "x-company-id"=$companyA; "x-role"="OPERATOR" } $null
+Assert-Status $linkRespBad.Status @("400") "T13.1 link cross-tenant" $linkRespBad.RespPath
+
+Write-Host "[PASS] Ticket-13.1 WorkOrder-LOT Link 스모크 완료" -ForegroundColor Green
