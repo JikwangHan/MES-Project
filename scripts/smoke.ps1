@@ -1116,13 +1116,17 @@ $procA = Ensure-Process -CompanyId $companyA -ProcCode "SMOKE-PROC-A10"
 $eqA = Ensure-Equipment -CompanyId $companyA -EqCode "SMOKE-EQ-A10" -ProcessId $procA
 
 Write-Host "[STEP] Ticket-10 작업지시 등록 201/409" -ForegroundColor Cyan
-$woNo = "WO-SMOKE-001"
+$woNo = "WO-SMOKE-" + (Get-Date -Format "yyyyMMddHHmmss")
 $woFile = New-JsonFileFromObj @{
   woNo = $woNo; itemId = $itemA; processId = $procA; equipmentId = $eqA;
   planQty = 10; status = "PLANNED"
 }
 $woResp = Invoke-ApiSimple "POST" "$baseUrl/api/v1/work-orders" @{ "x-company-id"=$companyA; "x-role"="OPERATOR" } $woFile
 Assert-Status $woResp.Status @("201","409") "T10 work-order create" $woResp.RespPath
+$woId = $null
+if ($woResp.Status -eq "201") {
+  $woId = Get-JsonId $woResp.RespPath
+}
 
 Write-Host "[STEP] Ticket-10 VIEWER 작업지시 등록 차단 403" -ForegroundColor Cyan
 $woFile2 = New-JsonFileFromObj @{ woNo="WO-SMOKE-VIEW"; itemId=$itemA; processId=$procA; planQty=1; status="PLANNED" }
@@ -1136,13 +1140,16 @@ $badResp = Invoke-ApiSimple "POST" "$baseUrl/api/v1/work-orders" @{ "x-company-i
 Assert-Status $badResp.Status @("400") "T10 work-order cross-tenant" $badResp.RespPath
 
 Write-Host "[STEP] Ticket-10 실적 등록 201" -ForegroundColor Cyan
-$woList = Invoke-ApiSimple "GET" "$baseUrl/api/v1/work-orders?limit=10" @{ "x-company-id"=$companyA; "x-role"="VIEWER" } $null
-Assert-Status $woList.Status @("200") "T10 work-order list" $woList.RespPath
-$wo = (Get-Content $woList.RespPath -Raw | ConvertFrom-Json).data | Where-Object { $_.woNo -eq $woNo } | Select-Object -First 1
-if (-not $wo) { Write-Host "[FAIL] work-order not found for results" -ForegroundColor Red; exit 1 }
+if (-not $woId) {
+  $woList = Invoke-ApiSimple "GET" "$baseUrl/api/v1/work-orders?limit=200" @{ "x-company-id"=$companyA; "x-role"="VIEWER" } $null
+  Assert-Status $woList.Status @("200") "T10 work-order list" $woList.RespPath
+  $wo = (Get-Content $woList.RespPath -Raw | ConvertFrom-Json).data | Where-Object { $_.woNo -eq $woNo } | Select-Object -First 1
+  if (-not $wo) { Write-Host "[FAIL] work-order not found for results" -ForegroundColor Red; exit 1 }
+  $woId = $wo.id
+}
 
 $resFile = New-JsonFileFromObj @{ goodQty=5; defectQty=1; eventTs=(Get-Date).ToString("o"); note="smoke" }
-$resResp = Invoke-ApiSimple "POST" "$baseUrl/api/v1/work-orders/$($wo.id)/results" @{ "x-company-id"=$companyA; "x-role"="OPERATOR" } $resFile
+$resResp = Invoke-ApiSimple "POST" "$baseUrl/api/v1/work-orders/$woId/results" @{ "x-company-id"=$companyA; "x-role"="OPERATOR" } $resFile
 Assert-Status $resResp.Status @("201") "T10 results create" $resResp.RespPath
 
 Write-Host "[PASS] Ticket-10 Work Orders/Results 스모크 완료" -ForegroundColor Green
