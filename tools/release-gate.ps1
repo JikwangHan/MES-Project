@@ -57,12 +57,12 @@ function Checkout-And-Pull([string]$branch) {
   git pull $Remote $branch | Out-Null
 }
 
-function Wait-HealthAny([string[]]$urls, [int]$timeoutSec = 15) {
+function Wait-HealthAny([string[]]$urls, [hashtable]$headers, [int]$timeoutSec = 15) {
   $start = Get-Date
   while (((Get-Date) - $start).TotalSeconds -lt $timeoutSec) {
     foreach ($u in $urls) {
       try {
-        $r = Invoke-WebRequest -Uri $u -Method Get -TimeoutSec 3 -ErrorAction Stop
+        $r = Invoke-WebRequest -Uri $u -Method Get -TimeoutSec 3 -Headers $headers -ErrorAction Stop
         if ($r.StatusCode -eq 200) { return $u }
       } catch {
         # ignore and try next
@@ -86,7 +86,8 @@ function Get-HealthCandidates([string]$baseUrl, [string]$healthUrl) {
 
 function Start-ServerIfNeeded([string]$baseUrl, [string]$healthUrl) {
   $candidates = Get-HealthCandidates $baseUrl $healthUrl
-  $found = Wait-HealthAny $candidates 1
+  $headers = @{ "x-company-id" = "HEALTH"; "x-role" = "VIEWER" }
+  $found = Wait-HealthAny $candidates $headers 1
   if ($found) {
     Write-Info "서버 헬스 OK: $found"
     $script:ResolvedHealthUrl = $found
@@ -99,7 +100,7 @@ function Start-ServerIfNeeded([string]$baseUrl, [string]$healthUrl) {
 
   Write-Info "서버 자동 기동: node src/server.js"
   $proc = Start-Process -FilePath node -ArgumentList "src/server.js" -PassThru
-  $found2 = Wait-HealthAny $candidates 15
+  $found2 = Wait-HealthAny $candidates $headers 15
   if (-not $found2) {
     try { Stop-Process -Id $proc.Id -Force -ErrorAction SilentlyContinue } catch {}
     $msg = "Health 엔드포인트를 찾지 못했습니다. -HealthUrl로 직접 지정하세요. (시도: " + ($candidates -join ", ") + ")"
