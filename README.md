@@ -493,3 +493,48 @@ pwsh .\tools\release-gate.ps1 -ApplyTag -PushTag
  - 테스트 자동화 도입 (예: Jest, Vitest, Pytest 등 스택에 맞춰 선택)
 
 필요한 스택이나 세부 구조를 알려주시면, 거기에 맞춘 설정 파일과 예제 코드를 더 추가해드리겠습니다.
+
+## 18) Ticket-14 리포트/통계 API 실행하기
+조회 전용 리포트 API입니다. 데이터가 없어도 200으로 응답합니다.
+
+1. 요약 리포트 (summary)
+```powershell
+curl.exe -X GET "http://localhost:4000/api/v1/reports/summary?from=2025-01-01&to=2025-01-07" `
+  -H "x-company-id: COMPANY-A" `
+  -H "x-role: VIEWER"
+```
+
+2. 일별 리포트 (daily)
+```powershell
+curl.exe -X GET "http://localhost:4000/api/v1/reports/daily?from=2025-01-01&to=2025-01-07" `
+  -H "x-company-id: COMPANY-A" `
+  -H "x-role: VIEWER"
+```
+
+3. 불량 상위 리포트 (top-defects)
+```powershell
+curl.exe -X GET "http://localhost:4000/api/v1/reports/top-defects?from=2025-01-01&to=2025-01-07&limit=5" `
+  -H "x-company-id: COMPANY-A" `
+  -H "x-role: VIEWER"
+```
+
+4. 잘못된 날짜 형식 (400)
+```powershell
+curl.exe -X GET "http://localhost:4000/api/v1/reports/summary?from=2025-99-99&to=2025-01-01" `
+  -H "x-company-id: COMPANY-A" `
+  -H "x-role: VIEWER"
+```
+
+5. 잘못된 날짜 범위 (400)
+```powershell
+curl.exe -X GET "http://localhost:4000/api/v1/reports/daily?from=2025-12-31&to=2025-01-01" `
+  -H "x-company-id: COMPANY-A" `
+  -H "x-role: VIEWER"
+```
+
+6. limit 범위 초과 (400)
+```powershell
+curl.exe -X GET "http://localhost:4000/api/v1/reports/top-defects?limit=999" `
+  -H "x-company-id: COMPANY-A" `
+  -H "x-role: VIEWER"
+```
