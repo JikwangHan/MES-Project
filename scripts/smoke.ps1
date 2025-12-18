@@ -1545,6 +1545,31 @@ Assert-Status $linkRespBad.Status @("400") "T13.1 link cross-tenant" $linkRespBa
 Write-Host "[PASS] Ticket-13.1 WorkOrder-LOT Link 스모크 완료" -ForegroundColor Green
 
 # ---------------------------
+# Ticket-14 Smoke: Reports
+# ---------------------------
+Write-Host "`n[SMOKE] Ticket-14 Reports 시작" -ForegroundColor Cyan
+
+$reportTo = (Get-Date).ToString("yyyy-MM-dd")
+$reportFrom = (Get-Date).AddDays(-7).ToString("yyyy-MM-dd")
+
+$rep1 = Invoke-ApiSimple "GET" "$baseUrl/api/v1/reports/summary?from=$reportFrom&to=$reportTo" @{ "x-company-id"=$companyA; "x-role"="VIEWER" } $null
+Assert-Status $rep1.Status @("200") "T14 summary" $rep1.RespPath
+
+$rep2 = Invoke-ApiSimple "GET" "$baseUrl/api/v1/reports/daily?from=$reportFrom&to=$reportTo" @{ "x-company-id"=$companyA; "x-role"="VIEWER" } $null
+Assert-Status $rep2.Status @("200") "T14 daily" $rep2.RespPath
+
+$rep3 = Invoke-ApiSimple "GET" "$baseUrl/api/v1/reports/top-defects?from=$reportFrom&to=$reportTo&limit=10" @{ "x-company-id"=$companyA; "x-role"="VIEWER" } $null
+Assert-Status $rep3.Status @("200") "T14 top-defects" $rep3.RespPath
+
+$rep4 = Invoke-ApiSimple "GET" "$baseUrl/api/v1/reports/summary?from=2025-99-99&to=$reportTo" @{ "x-company-id"=$companyA; "x-role"="VIEWER" } $null
+Assert-Status $rep4.Status @("400") "T14 invalid date" $rep4.RespPath
+
+$rep5 = Invoke-ApiSimple "GET" "$baseUrl/api/v1/reports/top-defects?limit=999" @{ "x-company-id"=$companyA; "x-role"="VIEWER" } $null
+Assert-Status $rep5.Status @("400") "T14 invalid limit" $rep5.RespPath
+
+Write-Host "[PASS] Ticket-14 Reports 스모크 완료" -ForegroundColor Green
+
+# ---------------------------
 # Optional ERD Gate
 # ---------------------------
 Invoke-ErdGate -DbPath "data/mes.db" -OutDir "docs/erd"
