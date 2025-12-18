@@ -155,6 +155,14 @@ try {
   }
 }
 
+$erdEnabled = $ErdMermaid -or $ErdRender -or $ErdEnforce
+if ($erdEnabled) {
+  $erdDirty = & git status --porcelain -- "docs/erd/*.mmd"
+  if ($erdDirty) {
+    throw "ERD 생성으로 docs/erd/*.mmd 변경이 생겼습니다. 커밋 후 다시 실행하거나, ERD 옵션을 끄고 실행하세요."
+  }
+}
+
 $nextTag = Get-NextTag $Series
 Write-Info "다음 baseline 태그: $nextTag"
 
