@@ -18,6 +18,7 @@ const env = {
   deviceKeyId: process.env.MES_DEVICE_KEY || '',
   deviceSecret: process.env.MES_DEVICE_SECRET || '',
   signingEnabled: process.env.MES_SIGNING_ENABLED === '1',
+  canonical: process.env.MES_CANONICAL || 'legacy-json',
   pollMs: Number(process.env.GATEWAY_POLL_MS || 1000),
   rawDir: process.env.GATEWAY_RAWLOG_DIR || path.join(__dirname, '..', 'data', 'rawlogs'),
   retryDir: process.env.GATEWAY_RETRY_DIR || path.join(__dirname, '..', 'data', 'retry'),
@@ -58,6 +59,7 @@ async function runCycle() {
       deviceKeyId: env.deviceKeyId,
       deviceSecret: env.deviceSecret,
       signingEnabled: env.signingEnabled,
+      canonical: env.canonical,
       payload,
     });
     if (!result.ok) {

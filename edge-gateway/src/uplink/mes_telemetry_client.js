@@ -21,6 +21,7 @@ async function sendTelemetry({
   deviceKeyId,
   deviceSecret,
   signingEnabled,
+  canonical,
   payload,
 }) {
   const bodyRaw = JSON.stringify(payload);
@@ -29,6 +30,9 @@ async function sendTelemetry({
     'x-company-id': companyId,
     'x-role': role,
   };
+  if (canonical) {
+    headers['x-canonical'] = canonical;
+  }
 
   if (signingEnabled) {
     if (!deviceKeyId || !deviceSecret) {
