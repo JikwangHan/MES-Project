@@ -34,6 +34,20 @@ param(
 
 $ErrorActionPreference = "Stop"
 
+# Ticket-14.1 운영 룰 기본값
+if (-not $env:REPORT_KPI_CACHE_MODE -or [string]::IsNullOrWhiteSpace($env:REPORT_KPI_CACHE_MODE)) {
+  $env:REPORT_KPI_CACHE_MODE = "PREFER"
+}
+if (-not $env:RELEASE_GATE_REPORT_CACHE_PROBE -or [string]::IsNullOrWhiteSpace($env:RELEASE_GATE_REPORT_CACHE_PROBE)) {
+  $env:RELEASE_GATE_REPORT_CACHE_PROBE = "1"
+}
+if (-not $env:RELEASE_GATE_REPORT_CACHE_STRICT -or [string]::IsNullOrWhiteSpace($env:RELEASE_GATE_REPORT_CACHE_STRICT)) {
+  $env:RELEASE_GATE_REPORT_CACHE_STRICT = "0"
+}
+if (-not $env:RELEASE_GATE_REPORT_CACHE_ASSERT_HIT -or [string]::IsNullOrWhiteSpace($env:RELEASE_GATE_REPORT_CACHE_ASSERT_HIT)) {
+  $env:RELEASE_GATE_REPORT_CACHE_ASSERT_HIT = "1"
+}
+
 function Write-Info([string]$msg) { Write-Host "[INFO] $msg" }
 function Write-Warn([string]$msg) { Write-Host "[WARN] $msg" -ForegroundColor Yellow }
 function Write-Fail([string]$msg) { Write-Host "[FAIL] $msg" -ForegroundColor Red }
@@ -136,16 +150,16 @@ function Invoke-ReportCacheProbe {
     [ref]$ServerProcRef
   )
 
-  $probe = ($env:RG_REPORT_CACHE_PROBE -eq "1")
+  $probe = ($env:RELEASE_GATE_REPORT_CACHE_PROBE -eq "1")
   if (-not $probe) { return }
 
-  $strict = ($env:RG_REPORT_CACHE_PROBE_STRICT -eq "1")
-  $path = $env:RG_REPORT_KPI_PATH
-  if (-not $path) { $path = "/api/v1/reports/kpi/daily" }
-  $date = $env:RG_REPORT_KPI_DATE
-  if (-not $date) { $date = (Get-Date -Format "yyyy-MM-dd") }
+  $strict = ($env:RELEASE_GATE_REPORT_CACHE_STRICT -eq "1")
+  $assertHit = ($env:RELEASE_GATE_REPORT_CACHE_ASSERT_HIT -ne "0")
 
-  Write-Info "REPORT_KPI 캐시 probe 시작 (path=$path, date=$date)"
+  $from = (Get-Date).AddDays(-7).ToString("yyyy-MM-dd")
+  $to = (Get-Date).ToString("yyyy-MM-dd")
+
+  Write-Info "REPORT 캐시 probe 시작 (mode=$env:REPORT_KPI_CACHE_MODE, from=$from, to=$to)"
 
   # 서버를 PREFER 모드로 재기동(가능한 경우)
   if ($ServerProcRef.Value) {
@@ -168,39 +182,37 @@ function Invoke-ReportCacheProbe {
     if ($strict) { throw $msg } else { Write-Warn $msg }
   }
 
-  $url = "$BaseUrl$path" + "?date=$date"
-  $resp1 = $null
-  $resp2 = $null
-
   try {
-    $resp1 = Invoke-WebRequest -Uri $url -Method Get -Headers $Headers -TimeoutSec 5
-    $resp2 = Invoke-WebRequest -Uri $url -Method Get -Headers $Headers -TimeoutSec 5
+    $summaryUrl = "$BaseUrl/api/v1/reports/summary?from=$from&to=$to"
+    $dailyUrl = "$BaseUrl/api/v1/reports/daily?from=$from&to=$to"
+
+    $respSummary = Invoke-WebRequest -Uri $summaryUrl -Method Get -Headers $Headers -TimeoutSec 5
+    if ($respSummary.StatusCode -ne 200) {
+      throw "summary expected 200, got $($respSummary.StatusCode)"
+    }
+    Write-Info "REPORT 캐시 probe 200 OK: $summaryUrl"
+
+    $respDaily1 = Invoke-WebRequest -Uri $dailyUrl -Method Get -Headers $Headers -TimeoutSec 5
+    if ($respDaily1.StatusCode -ne 200) {
+      throw "daily 1st expected 200, got $($respDaily1.StatusCode)"
+    }
+    Write-Info "REPORT 캐시 probe 200 OK: $dailyUrl (1st)"
+
+    $respDaily2 = Invoke-WebRequest -Uri $dailyUrl -Method Get -Headers $Headers -TimeoutSec 5
+    if ($respDaily2.StatusCode -ne 200) {
+      throw "daily 2nd expected 200, got $($respDaily2.StatusCode)"
+    }
+    $cacheHeader = $respDaily2.Headers["X-Report-Cache"]
+    Write-Info "REPORT 캐시 probe 200 OK: $dailyUrl (2nd), X-Report-Cache=$cacheHeader"
+
+    if ($assertHit -and $cacheHeader -ne "HIT") {
+      throw "REPORT 캐시 HIT 미증명: X-Report-Cache=HIT 필요, 실제='$cacheHeader'"
+    }
   } catch {
     $msg = "REPORT_KPI probe 요청 실패: $($_.Exception.Message)"
     if ($strict) { throw $msg } else { Write-Warn $msg; return }
   }
-
-  if ($resp2.StatusCode -ne 200) {
-    $msg = "REPORT_KPI probe 응답 코드가 200이 아닙니다. (2차 호출: $($resp2.StatusCode))"
-    if ($strict) { throw $msg } else { Write-Warn $msg; return }
-  }
-
-  # meta.cache 힌트가 있으면 2차 호출이 CACHE인지 확인
-  try {
-    $json = $resp2.Content | ConvertFrom-Json -ErrorAction Stop
-    if ($json.meta -and $json.meta.cache) {
-      if ($json.meta.cache -ne "CACHE") {
-        $msg = "REPORT_KPI probe: meta.cache가 CACHE가 아닙니다. (value=$($json.meta.cache))"
-        if ($strict) { throw $msg } else { Write-Warn $msg }
-      } else {
-        Write-Info "REPORT_KPI probe: meta.cache=CACHE 확인"
-      }
-    } else {
-      Write-Info "REPORT_KPI probe: meta.cache 힌트 없음(200 OK만 확인)"
-    }
-  } catch {
-    Write-Warn "REPORT_KPI probe: JSON 파싱 실패. 200 OK만 확인합니다."
-  }
+  Write-Info "REPORT 캐시 probe 완료"
 }
 
 function Get-NextTag([string]$series) {
