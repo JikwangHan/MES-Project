@@ -156,6 +156,14 @@ module.exports = {
     code: 'REPORT_LIMIT_INVALID',
     message: 'limit 값이 올바르지 않습니다.',
   },
+  DASHBOARD_DAYS_INVALID: {
+    code: 'DASHBOARD_DAYS_INVALID',
+    message: 'days 값이 올바르지 않습니다.',
+  },
+  DASHBOARD_LIMIT_INVALID: {
+    code: 'DASHBOARD_LIMIT_INVALID',
+    message: 'limit 값이 올바르지 않습니다.',
+  },
   REPORT_KPI_CACHE_MISS: {
     code: 'REPORT_KPI_CACHE_MISS',
     message: '리포트 캐시가 존재하지 않습니다.',
