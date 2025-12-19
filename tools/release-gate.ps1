@@ -29,7 +29,8 @@ param(
   [switch]$ErdMermaid,
   [switch]$ErdRender,
   [switch]$ErdStrict,
-  [switch]$ErdEnforce
+  [switch]$ErdEnforce,
+  [switch]$ProbeGateway
 )
 
 $ErrorActionPreference = "Stop"
@@ -164,9 +165,16 @@ function Invoke-GatewaySmokeIfEnabled {
   $gatewayDir = Join-Path $PSScriptRoot "..\edge-gateway"
   $gatewayDir = (Resolve-Path $gatewayDir).Path
   $smokePath = Join-Path $gatewayDir "scripts\smoke-gateway.ps1"
+  $nodeModules = Join-Path $gatewayDir "node_modules"
 
   if (!(Test-Path $smokePath)) {
     throw "Gateway probe requested but not found: $smokePath"
+  }
+  if (!(Test-Path $nodeModules)) {
+    $msg = "Gateway probe SKIP: node_modules 없음. 실행하려면 `"$gatewayDir`"에서 npm ci 필요"
+    if ($env:RELEASE_PROBE_GATEWAY_STRICT -eq "1") { throw $msg }
+    Write-Warn $msg
+    return
   }
 
   Write-Info "Gateway probe: RUN (edge-gateway smoke)"
@@ -282,11 +290,18 @@ Checkout-And-Pull $Branch
 $serverProc = $null
 try {
   $serverProc = Start-ServerIfNeeded $BaseUrl $HealthUrl
+  $probeGatewayEffective = $ProbeGateway -or $ApplyTag -or $PushTag
+  if ($probeGatewayEffective) {
+    $env:RELEASE_PROBE_GATEWAY = "1"
+  } else {
+    Remove-Item Env:RELEASE_PROBE_GATEWAY -ErrorAction SilentlyContinue
+  }
   Set-ErdEnv
   Set-PurgeProbeEnv
   Run-Smoke
   Clear-PurgeProbeEnv
   Invoke-GatewaySmokeIfEnabled -BaseUrl $BaseUrl
+  Remove-Item Env:RELEASE_PROBE_GATEWAY -ErrorAction SilentlyContinue
   Clear-ErdEnv
 
   $headers = @{ "x-company-id" = "HEALTH"; "x-role" = "VIEWER" }
