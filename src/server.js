@@ -22,6 +22,7 @@ const {
   cleanupNoncesOnce,
   startNonceCleanupScheduler,
 } = require('./jobs/nonceCleanup');
+const { startReportKpiCachePurgeScheduler } = require('./jobs/reportKpiCachePurge');
 
 const app = express();
 const PORT = process.env.PORT || 4000;
@@ -30,6 +31,7 @@ const PORT = process.env.PORT || 4000;
 init();
 cleanupNoncesOnce();
 startNonceCleanupScheduler();
+startReportKpiCachePurgeScheduler();
 
 // 기본 미들웨어
 app.use(
