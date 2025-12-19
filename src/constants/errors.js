@@ -164,6 +164,22 @@ module.exports = {
     code: 'DASHBOARD_LIMIT_INVALID',
     message: 'limit 값이 올바르지 않습니다.',
   },
+  DASHBOARD_DATE_INVALID: {
+    code: 'DASHBOARD_DATE_INVALID',
+    message: '날짜 형식이 올바르지 않습니다. (YYYY-MM-DD)',
+  },
+  DASHBOARD_RANGE_INVALID: {
+    code: 'DASHBOARD_RANGE_INVALID',
+    message: '날짜 범위가 올바르지 않습니다.',
+  },
+  DASHBOARD_RANGE_TOO_LARGE: {
+    code: 'DASHBOARD_RANGE_TOO_LARGE',
+    message: '조회 기간이 너무 깁니다.',
+  },
+  DASHBOARD_THRESHOLD_INVALID: {
+    code: 'DASHBOARD_THRESHOLD_INVALID',
+    message: 'threshold 값이 올바르지 않습니다.',
+  },
   REPORT_KPI_CACHE_MISS: {
     code: 'REPORT_KPI_CACHE_MISS',
     message: '리포트 캐시가 존재하지 않습니다.',
