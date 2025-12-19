@@ -1592,6 +1592,28 @@ Assert-Status $dash4.Status @("400") "T15 invalid days" $dash4.RespPath
 Write-Host "[PASS] Ticket-15 Dashboard 스모크 완료" -ForegroundColor Green
 
 # ---------------------------
+# Ticket-16 Smoke: Dashboard KPI
+# ---------------------------
+Write-Host "`n[SMOKE] Ticket-16 Dashboard KPI 시작" -ForegroundColor Cyan
+
+$kpiTo = (Get-Date).ToString("yyyy-MM-dd")
+$kpiFrom = (Get-Date).AddDays(-7).ToString("yyyy-MM-dd")
+
+$kpi1 = Invoke-ApiSimple "GET" "$baseUrl/api/v1/dashboard/kpis?from=$kpiFrom&to=$kpiTo" @{ "x-company-id"=$companyA; "x-role"="VIEWER" } $null
+Assert-Status $kpi1.Status @("200") "T16 kpis" $kpi1.RespPath
+
+$kpi2 = Invoke-ApiSimple "GET" "$baseUrl/api/v1/dashboard/trends/daily?from=$kpiFrom&to=$kpiTo" @{ "x-company-id"=$companyA; "x-role"="VIEWER" } $null
+Assert-Status $kpi2.Status @("200") "T16 trends daily" $kpi2.RespPath
+
+$kpi3 = Invoke-ApiSimple "GET" "$baseUrl/api/v1/dashboard/top/defects?from=$kpiFrom&to=$kpiTo&limit=5" @{ "x-company-id"=$companyA; "x-role"="VIEWER" } $null
+Assert-Status $kpi3.Status @("200") "T16 top defects" $kpi3.RespPath
+
+$kpi4 = Invoke-ApiSimple "GET" "$baseUrl/api/v1/dashboard/kpis?from=2025-99-99&to=$kpiTo" @{ "x-company-id"=$companyA; "x-role"="VIEWER" } $null
+Assert-Status $kpi4.Status @("400") "T16 invalid date" $kpi4.RespPath
+
+Write-Host "[PASS] Ticket-16 Dashboard KPI 스모크 완료" -ForegroundColor Green
+
+# ---------------------------
 # Ticket-14.1b Smoke: Report Cache Purge
 # ---------------------------
 if ($env:RELEASE_PROBE_PURGE -eq "1") {
