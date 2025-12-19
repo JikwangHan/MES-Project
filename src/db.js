@@ -419,6 +419,16 @@ const init = () => {
     ON report_kpi_cache (company_id, report_name, expires_at);
   `);
 
+  db.exec(`
+    CREATE INDEX IF NOT EXISTS idx_report_kpi_cache_company_expires
+    ON report_kpi_cache (company_id, expires_at);
+  `);
+
+  db.exec(`
+    CREATE INDEX IF NOT EXISTS idx_report_kpi_cache_company_created
+    ON report_kpi_cache (company_id, created_at);
+  `);
+
   // 감사 로그
   db.exec(`
     CREATE TABLE IF NOT EXISTS audit_logs (
@@ -554,6 +564,44 @@ const countNonces = () => {
   return row ? row.cnt : 0;
 };
 
+const countReportKpiCacheRows = ({ companyId }) => {
+  if (!companyId) return 0;
+  const row = db
+    .prepare('SELECT COUNT(1) AS cnt FROM report_kpi_cache WHERE company_id = ?')
+    .get(companyId);
+  return row ? row.cnt : 0;
+};
+
+const purgeReportKpiCacheNow = ({ maxRowsPerCompany }) => {
+  const nowEpoch = Math.floor(Date.now() / 1000);
+
+  db.prepare('DELETE FROM report_kpi_cache WHERE CAST(expires_at AS INTEGER) <= ?').run(nowEpoch);
+
+  if (!Number.isInteger(maxRowsPerCompany) || maxRowsPerCompany <= 0) {
+    return;
+  }
+
+  const companies = db
+    .prepare('SELECT DISTINCT company_id AS companyId FROM report_kpi_cache')
+    .all();
+
+  const pruneStmt = db.prepare(
+    `DELETE FROM report_kpi_cache
+     WHERE company_id = ?
+       AND id NOT IN (
+         SELECT id
+         FROM report_kpi_cache
+         WHERE company_id = ?
+         ORDER BY created_at DESC, id DESC
+         LIMIT ?
+       )`
+  );
+
+  for (const row of companies) {
+    pruneStmt.run(row.companyId, row.companyId, maxRowsPerCompany);
+  }
+};
+
 module.exports = {
   db,
   init,
@@ -561,4 +609,6 @@ module.exports = {
   getEquipmentByDeviceKey,
   cleanupNonces,
   countNonces,
+  countReportKpiCacheRows,
+  purgeReportKpiCacheNow,
 };
