@@ -151,6 +151,47 @@ function Clear-PurgeProbeEnv {
   Remove-Item Env:RELEASE_PROBE_PURGE,Env:RELEASE_PROBE_PURGE_STRICT -ErrorAction SilentlyContinue
 }
 
+function Invoke-GatewaySmokeIfEnabled {
+  param(
+    [Parameter(Mandatory = $true)][string]$BaseUrl
+  )
+
+  if ($env:RELEASE_PROBE_GATEWAY -ne "1") {
+    Write-Info "Gateway probe: SKIP (RELEASE_PROBE_GATEWAY != 1)"
+    return
+  }
+
+  $gatewayDir = Join-Path $PSScriptRoot "..\edge-gateway"
+  $gatewayDir = (Resolve-Path $gatewayDir).Path
+  $smokePath = Join-Path $gatewayDir "scripts\smoke-gateway.ps1"
+
+  if (!(Test-Path $smokePath)) {
+    throw "Gateway probe requested but not found: $smokePath"
+  }
+
+  Write-Info "Gateway probe: RUN (edge-gateway smoke)"
+
+  $oldBaseUrl = $env:MES_BASE_URL
+  $oldCompanyId = $env:MES_COMPANY_ID
+
+  try {
+    $env:MES_BASE_URL = $BaseUrl
+    if (-not $env:MES_COMPANY_ID) { $env:MES_COMPANY_ID = "COMPANY-A" }
+
+    Push-Location $gatewayDir
+    & pwsh -NoProfile -ExecutionPolicy Bypass -File $smokePath
+    if ($LASTEXITCODE -ne 0) { throw "Gateway smoke failed with exit code $LASTEXITCODE" }
+  }
+  finally {
+    Pop-Location
+
+    if ($null -ne $oldBaseUrl) { $env:MES_BASE_URL = $oldBaseUrl } else { Remove-Item Env:MES_BASE_URL -ErrorAction SilentlyContinue }
+    if ($null -ne $oldCompanyId) { $env:MES_COMPANY_ID = $oldCompanyId } else { Remove-Item Env:MES_COMPANY_ID -ErrorAction SilentlyContinue }
+  }
+
+  Write-Info "Gateway probe: PASS"
+}
+
 function Invoke-ReportCacheProbe {
   param(
     [string]$BaseUrl,
@@ -245,6 +286,7 @@ try {
   Set-PurgeProbeEnv
   Run-Smoke
   Clear-PurgeProbeEnv
+  Invoke-GatewaySmokeIfEnabled -BaseUrl $BaseUrl
   Clear-ErdEnv
 
   $headers = @{ "x-company-id" = "HEALTH"; "x-role" = "VIEWER" }
