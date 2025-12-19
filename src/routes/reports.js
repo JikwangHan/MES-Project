@@ -66,9 +66,44 @@ const toCountMap = (rows, keyField, valueField = 'cnt') => {
   return map;
 };
 
-const reportCache = new Map();
+const cacheGetStmt = db.prepare(
+  `SELECT payload_json
+   FROM report_kpi_cache
+   WHERE company_id = ?
+     AND report_name = ?
+     AND from_date = ?
+     AND to_date = ?
+     AND params_json = ?
+     AND CAST(expires_at AS INTEGER) > ?
+   LIMIT 1`
+);
+
+const cacheUpsertStmt = db.prepare(
+  `INSERT INTO report_kpi_cache (
+     company_id,
+     report_name,
+     from_date,
+     to_date,
+     params_json,
+     payload_json,
+     expires_at,
+     created_at
+   ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+   ON CONFLICT(company_id, report_name, from_date, to_date, params_json)
+   DO UPDATE SET
+     payload_json = excluded.payload_json,
+     expires_at = excluded.expires_at,
+     created_at = excluded.created_at`
+);
 
 const getCacheMode = () => (process.env.REPORT_KPI_CACHE_MODE || 'PREFER').toUpperCase();
+
+const getCacheTtlSeconds = () => {
+  const raw = process.env.REPORT_KPI_CACHE_TTL_SECONDS;
+  const ttl = raw ? Number(raw) : 120;
+  if (!Number.isFinite(ttl) || ttl <= 0) return 120;
+  return Math.floor(ttl);
+};
 
 const setReportCacheHeader = (res, cacheHit) => {
   if (cacheHit === true) {
@@ -78,23 +113,70 @@ const setReportCacheHeader = (res, cacheHit) => {
   }
 };
 
-const withCache = (key, res, computeFn) => {
-  const mode = getCacheMode();
-  if (mode === 'OFF') {
-    const data = computeFn();
-    setReportCacheHeader(res, false);
-    return data;
+const toStableJson = (value) => {
+  if (value === null || value === undefined) return 'null';
+  if (Array.isArray(value)) {
+    return `[${value.map(toStableJson).join(',')}]`;
   }
+  if (typeof value === 'object') {
+    const keys = Object.keys(value).sort();
+    const entries = keys.map((k) => `${JSON.stringify(k)}:${toStableJson(value[k])}`);
+    return `{${entries.join(',')}}`;
+  }
+  return JSON.stringify(value);
+};
 
-  if (reportCache.has(key)) {
-    setReportCacheHeader(res, true);
-    return reportCache.get(key);
+const getCachedPayload = (companyId, reportName, from, to, paramsJson) => {
+  const nowEpoch = Math.floor(Date.now() / 1000);
+  const row = cacheGetStmt.get(companyId, reportName, from, to, paramsJson, nowEpoch);
+  if (!row) return null;
+  try {
+    return JSON.parse(row.payload_json);
+  } catch (err) {
+    return null;
+  }
+};
+
+const setCachedPayload = (companyId, reportName, from, to, paramsJson, payload) => {
+  const ttl = getCacheTtlSeconds();
+  const nowEpoch = Math.floor(Date.now() / 1000);
+  const expiresAt = nowEpoch + ttl;
+  const createdAt = new Date().toISOString();
+  cacheUpsertStmt.run(
+    companyId,
+    reportName,
+    from,
+    to,
+    paramsJson,
+    JSON.stringify(payload),
+    String(expiresAt),
+    createdAt
+  );
+};
+
+const withDbCache = (companyId, reportName, from, to, params, res, computeFn) => {
+  const mode = getCacheMode();
+  const paramsJson = toStableJson(params || {});
+
+  if (mode !== 'OFF') {
+    const cached = getCachedPayload(companyId, reportName, from, to, paramsJson);
+    if (cached) {
+      setReportCacheHeader(res, true);
+      return { ok: true, data: cached };
+    }
+
+    if (mode === 'ENFORCE') {
+      return { ok: false, status: 409, err: ERR.REPORT_KPI_CACHE_MISS };
+    }
   }
 
   const data = computeFn();
-  reportCache.set(key, data);
-  setReportCacheHeader(res, false);
-  return data;
+  if (mode !== 'OFF') {
+    setCachedPayload(companyId, reportName, from, to, paramsJson, data);
+    setReportCacheHeader(res, false);
+  }
+
+  return { ok: true, data };
 };
 
 router.get('/summary', (req, res) => {
@@ -104,8 +186,7 @@ router.get('/summary', (req, res) => {
 
   const { from, to } = range;
 
-  const cacheKey = `summary|${companyId}|${from}|${to}`;
-  const data = withCache(cacheKey, res, () => {
+  const result = withDbCache(companyId, 'summary', from, to, {}, res, () => {
     const workOrders = db
       .prepare(
         `SELECT COUNT(1) AS cnt
@@ -175,7 +256,10 @@ router.get('/summary', (req, res) => {
     };
   });
 
-  return res.json(ok(data));
+  if (!result.ok) {
+    return res.status(result.status).json(fail(result.err.code, result.err.message));
+  }
+  return res.json(ok(result.data));
 });
 
 router.get('/daily', (req, res) => {
@@ -186,8 +270,7 @@ router.get('/daily', (req, res) => {
   const { from, to, fromDate, toDate } = range;
   const days = buildDateList(fromDate, toDate);
 
-  const cacheKey = `daily|${companyId}|${from}|${to}`;
-  const payload = withCache(cacheKey, res, () => {
+  const result = withDbCache(companyId, 'daily', from, to, {}, res, () => {
     const workOrdersRows = db
       .prepare(
         `SELECT date(created_at) AS day, COUNT(1) AS cnt
@@ -256,7 +339,10 @@ router.get('/daily', (req, res) => {
     return { from, to, items: data };
   });
 
-  return res.json(ok(payload));
+  if (!result.ok) {
+    return res.status(result.status).json(fail(result.err.code, result.err.message));
+  }
+  return res.json(ok(result.data));
 });
 
 router.get('/top-defects', (req, res) => {
@@ -272,8 +358,14 @@ router.get('/top-defects', (req, res) => {
 
   const { from, to } = range;
 
-  const cacheKey = `top-defects|${companyId}|${from}|${to}|${limit}`;
-  const payload = withCache(cacheKey, res, () => {
+  const result = withDbCache(
+    companyId,
+    'top-defects',
+    from,
+    to,
+    { limit },
+    res,
+    () => {
     const rows = db
       .prepare(
         `SELECT
@@ -292,9 +384,13 @@ router.get('/top-defects', (req, res) => {
       .all(companyId, from, to, limit);
 
     return { from, to, items: rows };
-  });
+    }
+  );
 
-  return res.json(ok(payload));
+  if (!result.ok) {
+    return res.status(result.status).json(fail(result.err.code, result.err.message));
+  }
+  return res.json(ok(result.data));
 });
 
 module.exports = router;
