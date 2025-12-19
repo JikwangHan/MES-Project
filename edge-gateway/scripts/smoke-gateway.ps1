@@ -6,16 +6,45 @@ $env:MES_BASE_URL = $env:MES_BASE_URL ?? "http://localhost:4000"
 $env:MES_COMPANY_ID = $env:MES_COMPANY_ID ?? "COMPANY-A"
 $env:MES_ROLE = $env:MES_ROLE ?? "VIEWER"
 $env:GATEWAY_PROFILE = $env:GATEWAY_PROFILE ?? "sample_modbus_tcp"
+$env:MES_CANONICAL = $env:MES_CANONICAL ?? "stable-json"
 
 Write-Host "[INFO] MES_BASE_URL=$($env:MES_BASE_URL)"
 Write-Host "[INFO] COMPANY_ID=$($env:MES_COMPANY_ID)"
 Write-Host "[INFO] PROFILE=$($env:GATEWAY_PROFILE)"
+Write-Host "[INFO] CANONICAL=$($env:MES_CANONICAL)"
 
-# One-shot run
-node .\src\index.js --once
-if ($LASTEXITCODE -ne 0) {
-  Write-Host "[FAIL] edge-gateway one-shot failed" -ForegroundColor Red
-  exit 1
+function Invoke-GatewayOnce {
+  param([string]$Label)
+  Write-Host "[INFO] Run: $Label"
+  node .\src\index.js --once
+  if ($LASTEXITCODE -ne 0) {
+    Write-Host "[FAIL] edge-gateway one-shot failed ($Label)" -ForegroundColor Red
+    exit 1
+  }
+}
+
+# One-shot run (signing OFF)
+$env:MES_SIGNING_ENABLED = "0"
+Invoke-GatewayOnce "signing OFF"
+
+# Signing ON (stable-json)
+if ($env:MES_DEVICE_KEY -and $env:MES_DEVICE_SECRET) {
+  $env:MES_SIGNING_ENABLED = "1"
+  $env:MES_CANONICAL = "stable-json"
+  Invoke-GatewayOnce "signing ON (stable-json)"
+} else {
+  Write-Host "[WARN] signing ON skipped (MES_DEVICE_KEY/SECRET missing)"
+}
+
+# Optional legacy-json compatibility test
+if ($env:SMOKE_GATEWAY_TEST_LEGACY -eq "1") {
+  if ($env:MES_DEVICE_KEY -and $env:MES_DEVICE_SECRET) {
+    $env:MES_SIGNING_ENABLED = "1"
+    $env:MES_CANONICAL = "legacy-json"
+    Invoke-GatewayOnce "signing ON (legacy-json)"
+  } else {
+    Write-Host "[WARN] legacy-json test skipped (MES_DEVICE_KEY/SECRET missing)"
+  }
 }
 
 Write-Host "[PASS] Edge Gateway smoke completed" -ForegroundColor Green

@@ -1,0 +1,7 @@
+{
+  "points": [
+    { "name": "rpm", "address": 10, "type": "int", "scale": 1 },
+    { "name": "vibration", "address": 12, "type": "float", "scale": 0.1 },
+    { "name": "running", "address": 20, "type": "bool" }
+  ]
+}

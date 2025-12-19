@@ -1,8 +1,8 @@
 const fs = require('fs');
 const path = require('path');
 const { loadProfile } = require('./config');
-const { readModbusTcp } = require('./adapters/modbus_tcp');
-const { readModbusRtu } = require('./adapters/modbus_rtu');
+const { createModbusTcpAdapter } = require('./adapters/modbus_tcp');
+const { createModbusRtuAdapter } = require('./adapters/modbus_rtu');
 const { normalizeTelemetry } = require('./normalizer/normalize');
 const { sendTelemetry } = require('./uplink/mes_telemetry_client');
 const { writeRawLog } = require('./log/raw_log_store');
@@ -18,6 +18,7 @@ const env = {
   deviceKeyId: process.env.MES_DEVICE_KEY || '',
   deviceSecret: process.env.MES_DEVICE_SECRET || '',
   signingEnabled: process.env.MES_SIGNING_ENABLED === '1',
+  canonical: process.env.MES_CANONICAL || 'stable-json',
   pollMs: Number(process.env.GATEWAY_POLL_MS || 1000),
   rawDir: process.env.GATEWAY_RAWLOG_DIR || path.join(__dirname, '..', 'data', 'rawlogs'),
   retryDir: process.env.GATEWAY_RETRY_DIR || path.join(__dirname, '..', 'data', 'retry'),
@@ -32,17 +33,25 @@ function ensureDir(dir) {
 
 async function readFromAdapter(profile) {
   if (profile.adapter === 'modbus_tcp') {
-    return readModbusTcp(profile);
+    return createModbusTcpAdapter(profile);
   }
   if (profile.adapter === 'modbus_rtu') {
-    return readModbusRtu(profile);
+    return createModbusRtuAdapter(profile);
   }
   throw new Error(`Unsupported adapter: ${profile.adapter}`);
 }
 
+async function readOnce(profile) {
+  const adapter = await readFromAdapter(profile);
+  await adapter.connect();
+  const result = await adapter.readPoints();
+  await adapter.close();
+  return result;
+}
+
 async function runCycle() {
   const profile = loadProfile(env.profile);
-  const metrics = await readFromAdapter(profile);
+  const metrics = await readOnce(profile);
   const payload = normalizeTelemetry(profile, metrics);
 
   ensureDir(env.rawDir);
@@ -58,6 +67,7 @@ async function runCycle() {
       deviceKeyId: env.deviceKeyId,
       deviceSecret: env.deviceSecret,
       signingEnabled: env.signingEnabled,
+      canonical: env.canonical,
       payload,
     });
     if (!result.ok) {
@@ -84,6 +94,7 @@ async function main() {
     companyId: env.companyId,
     profile: env.profile,
     pollMs: env.pollMs,
+    canonical: env.canonical,
   });
 
   await runCycle();
