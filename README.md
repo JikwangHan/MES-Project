@@ -538,3 +538,48 @@ curl.exe -X GET "http://localhost:4000/api/v1/reports/top-defects?limit=999" `
   -H "x-company-id: COMPANY-A" `
   -H "x-role: VIEWER"
 ```
+
+## 19) Ticket-15 대시보드(Dashboard) API 실행하기
+대시보드 위젯용 조회 API입니다. 조회 전용이라 VIEWER도 사용 가능합니다.
+
+1. 대시보드 요약(overview)
+```powershell
+curl.exe -X GET "http://localhost:4000/api/v1/dashboard/overview?days=7" `
+  -H "x-company-id: COMPANY-A" `
+  -H "x-role: VIEWER"
+```
+
+2. 대시보드 활동(activity)
+```powershell
+curl.exe -X GET "http://localhost:4000/api/v1/dashboard/activity?days=14" `
+  -H "x-company-id: COMPANY-A" `
+  -H "x-role: VIEWER"
+```
+
+3. 대시보드 알림(alerts)
+```powershell
+curl.exe -X GET "http://localhost:4000/api/v1/dashboard/alerts?limit=5" `
+  -H "x-company-id: COMPANY-A" `
+  -H "x-role: VIEWER"
+```
+
+4. 잘못된 days (400)
+```powershell
+curl.exe -X GET "http://localhost:4000/api/v1/dashboard/activity?days=0" `
+  -H "x-company-id: COMPANY-A" `
+  -H "x-role: VIEWER"
+```
+
+5. 잘못된 limit (400)
+```powershell
+curl.exe -X GET "http://localhost:4000/api/v1/dashboard/alerts?limit=999" `
+  -H "x-company-id: COMPANY-A" `
+  -H "x-role: VIEWER"
+```
+
+6. 멀티테넌트 분리 확인 (COMPANY-B 조회)
+```powershell
+curl.exe -X GET "http://localhost:4000/api/v1/dashboard/overview?days=7" `
+  -H "x-company-id: COMPANY-B" `
+  -H "x-role: VIEWER"
+```
