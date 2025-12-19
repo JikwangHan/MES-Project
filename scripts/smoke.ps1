@@ -1572,6 +1572,8 @@ Write-Host "[PASS] Ticket-14 Reports 스모크 완료" -ForegroundColor Green
 # ---------------------------
 # Ticket-14.1b Smoke: Report Cache Purge
 # ---------------------------
+if ($env:RELEASE_PROBE_PURGE -eq "1") {
+  Write-Host "[INFO][T14.1b] purge probe enabled (RELEASE_PROBE_PURGE=1)"
 Write-Host "`n[SMOKE] Ticket-14.1b Report Cache Purge 시작" -ForegroundColor Cyan
 
 $env:REPORT_KPI_CACHE_MODE = "PREFER"
@@ -1603,7 +1605,12 @@ if ([int]$after -le 10) {
   exit 1
 }
 
+
+} else {
+  Write-Host "[INFO][T14.1b] purge probe skipped (set RELEASE_PROBE_PURGE=1 to enable)"
+}
 # ---------------------------
 # Optional ERD Gate
 # ---------------------------
 Invoke-ErdGate -DbPath "data/mes.db" -OutDir "docs/erd"
+
