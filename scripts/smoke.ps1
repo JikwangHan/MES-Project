@@ -1570,6 +1570,40 @@ Assert-Status $rep5.Status @("400") "T14 invalid limit" $rep5.RespPath
 Write-Host "[PASS] Ticket-14 Reports 스모크 완료" -ForegroundColor Green
 
 # ---------------------------
+# Ticket-14.1b Smoke: Report Cache Purge
+# ---------------------------
+Write-Host "`n[SMOKE] Ticket-14.1b Report Cache Purge 시작" -ForegroundColor Cyan
+
+$env:REPORT_KPI_CACHE_MODE = "PREFER"
+$env:REPORT_KPI_CACHE_TTL_SECONDS = "600"
+$env:REPORT_KPI_CACHE_PURGE_ENABLED = "1"
+
+for ($i=0; $i -lt 30; $i++) {
+  $fromPurge = (Get-Date).AddDays(-7-$i).ToString("yyyy-MM-dd")
+  $toPurge   = (Get-Date).AddDays(-1).ToString("yyyy-MM-dd")
+  $url = "$baseUrl/api/v1/reports/summary?from=$fromPurge&to=$toPurge"
+  $null = Invoke-ApiSimple "GET" $url @{ "x-company-id"=$companyA; "x-role"="VIEWER" } $null
+}
+
+$env:REPORT_KPI_CACHE_MAX_ROWS_PER_COMPANY = "10"
+
+$before = node -e "const db=require('./src/db'); db.init(); console.log(db.countReportKpiCacheRows({companyId:'COMPANY-A'}));"
+Write-Host "[INFO][T14.1b] before rows: $before"
+
+node -e "const db=require('./src/db'); db.init(); db.purgeReportKpiCacheNow({ maxRowsPerCompany: 10 }); console.log('purge-ok');" | Out-Null
+
+$after = node -e "const db=require('./src/db'); db.init(); console.log(db.countReportKpiCacheRows({companyId:'COMPANY-A'}));"
+Write-Host "[INFO][T14.1b] after rows: $after"
+
+if ([int]$after -le 10) {
+  Write-Host "[PASS] Ticket-14.1b purge maxRowsPerCompany 적용 확인" -ForegroundColor Green
+  Write-Host "[PASS] Ticket-14.1b Report Cache Purge 스모크 완료" -ForegroundColor Green
+} else {
+  Write-Host "[FAIL] Ticket-14.1b purge 실패: rows(after)=$after > 10" -ForegroundColor Red
+  exit 1
+}
+
+# ---------------------------
 # Optional ERD Gate
 # ---------------------------
 Invoke-ErdGate -DbPath "data/mes.db" -OutDir "docs/erd"
