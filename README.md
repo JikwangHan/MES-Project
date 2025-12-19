@@ -583,3 +583,48 @@ curl.exe -X GET "http://localhost:4000/api/v1/dashboard/overview?days=7" `
   -H "x-company-id: COMPANY-B" `
   -H "x-role: VIEWER"
 ```
+
+## 20) Ticket-16 대시보드 KPI API 실행하기
+대시보드 KPI 심화 조회 API입니다. 조회 전용이라 VIEWER도 사용 가능합니다.
+
+1. KPI 요약(kpis)
+```powershell
+curl.exe -X GET "http://localhost:4000/api/v1/dashboard/kpis?from=2025-01-01&to=2025-01-07" `
+  -H "x-company-id: COMPANY-A" `
+  -H "x-role: VIEWER"
+```
+
+2. 일별 추이(trends/daily)
+```powershell
+curl.exe -X GET "http://localhost:4000/api/v1/dashboard/trends/daily?from=2025-01-01&to=2025-01-07" `
+  -H "x-company-id: COMPANY-A" `
+  -H "x-role: VIEWER"
+```
+
+3. 불량 Top N(top/defects)
+```powershell
+curl.exe -X GET "http://localhost:4000/api/v1/dashboard/top/defects?from=2025-01-01&to=2025-01-07&limit=5" `
+  -H "x-company-id: COMPANY-A" `
+  -H "x-role: VIEWER"
+```
+
+4. 알람(결함률 임계치)
+```powershell
+curl.exe -X GET "http://localhost:4000/api/v1/dashboard/alerts?from=2025-01-01&to=2025-01-07&defectRateThreshold=0.05" `
+  -H "x-company-id: COMPANY-A" `
+  -H "x-role: VIEWER"
+```
+
+5. 잘못된 날짜 형식 (400)
+```powershell
+curl.exe -X GET "http://localhost:4000/api/v1/dashboard/kpis?from=2025-99-99&to=2025-01-07" `
+  -H "x-company-id: COMPANY-A" `
+  -H "x-role: VIEWER"
+```
+
+6. 잘못된 날짜 범위 (400)
+```powershell
+curl.exe -X GET "http://localhost:4000/api/v1/dashboard/trends/daily?from=2025-01-07&to=2025-01-01" `
+  -H "x-company-id: COMPANY-A" `
+  -H "x-role: VIEWER"
+```
