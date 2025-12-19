@@ -1570,6 +1570,28 @@ Assert-Status $rep5.Status @("400") "T14 invalid limit" $rep5.RespPath
 Write-Host "[PASS] Ticket-14 Reports 스모크 완료" -ForegroundColor Green
 
 # ---------------------------
+# Ticket-15 Smoke: Dashboard
+# ---------------------------
+Write-Host "`n[SMOKE] Ticket-15 Dashboard 시작" -ForegroundColor Cyan
+
+$dashDays = 7
+$dashLimit = 5
+
+$dash1 = Invoke-ApiSimple "GET" "$baseUrl/api/v1/dashboard/overview?days=$dashDays" @{ "x-company-id"=$companyA; "x-role"="VIEWER" } $null
+Assert-Status $dash1.Status @("200") "T15 overview" $dash1.RespPath
+
+$dash2 = Invoke-ApiSimple "GET" "$baseUrl/api/v1/dashboard/activity?days=$dashDays" @{ "x-company-id"=$companyA; "x-role"="VIEWER" } $null
+Assert-Status $dash2.Status @("200") "T15 activity" $dash2.RespPath
+
+$dash3 = Invoke-ApiSimple "GET" "$baseUrl/api/v1/dashboard/alerts?limit=$dashLimit" @{ "x-company-id"=$companyA; "x-role"="VIEWER" } $null
+Assert-Status $dash3.Status @("200") "T15 alerts" $dash3.RespPath
+
+$dash4 = Invoke-ApiSimple "GET" "$baseUrl/api/v1/dashboard/activity?days=0" @{ "x-company-id"=$companyA; "x-role"="VIEWER" } $null
+Assert-Status $dash4.Status @("400") "T15 invalid days" $dash4.RespPath
+
+Write-Host "[PASS] Ticket-15 Dashboard 스모크 완료" -ForegroundColor Green
+
+# ---------------------------
 # Ticket-14.1b Smoke: Report Cache Purge
 # ---------------------------
 if ($env:RELEASE_PROBE_PURGE -eq "1") {

@@ -17,6 +17,7 @@ const qualityCheckItemRoutes = require('./routes/qualityCheckItems');
 const qualityResultRoutes = require('./routes/qualityInspectionResults');
 const lotRoutes = require('./routes/lots');
 const reportRoutes = require('./routes/reports');
+const dashboardRoutes = require('./routes/dashboard');
 const { ok, fail } = require('./utils/response');
 const {
   cleanupNoncesOnce,
@@ -61,6 +62,7 @@ app.use('/api/v1/quality', qualityCheckItemRoutes);
 app.use('/api/v1/quality', qualityResultRoutes);
 app.use('/api/v1/lots', lotRoutes);
 app.use('/api/v1/reports', reportRoutes);
+app.use('/api/v1/dashboard', dashboardRoutes);
 
 app.get('/health', (_req, res) => res.json(ok({ status: 'ok' })));
 
