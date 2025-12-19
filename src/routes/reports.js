@@ -66,6 +66,37 @@ const toCountMap = (rows, keyField, valueField = 'cnt') => {
   return map;
 };
 
+const reportCache = new Map();
+
+const getCacheMode = () => (process.env.REPORT_KPI_CACHE_MODE || 'PREFER').toUpperCase();
+
+const setReportCacheHeader = (res, cacheHit) => {
+  if (cacheHit === true) {
+    res.set('X-Report-Cache', 'HIT');
+  } else if (cacheHit === false) {
+    res.set('X-Report-Cache', 'MISS');
+  }
+};
+
+const withCache = (key, res, computeFn) => {
+  const mode = getCacheMode();
+  if (mode === 'OFF') {
+    const data = computeFn();
+    setReportCacheHeader(res, false);
+    return data;
+  }
+
+  if (reportCache.has(key)) {
+    setReportCacheHeader(res, true);
+    return reportCache.get(key);
+  }
+
+  const data = computeFn();
+  reportCache.set(key, data);
+  setReportCacheHeader(res, false);
+  return data;
+};
+
 router.get('/summary', (req, res) => {
   const companyId = req.companyId;
   const range = parseDateRange(req.query);
@@ -73,64 +104,65 @@ router.get('/summary', (req, res) => {
 
   const { from, to } = range;
 
-  const workOrders = db
-    .prepare(
-      `SELECT COUNT(1) AS cnt
-       FROM work_orders
-       WHERE company_id = ?
-         AND date(created_at) BETWEEN ? AND ?`
-    )
-    .get(companyId, from, to);
+  const cacheKey = `summary|${companyId}|${from}|${to}`;
+  const data = withCache(cacheKey, res, () => {
+    const workOrders = db
+      .prepare(
+        `SELECT COUNT(1) AS cnt
+         FROM work_orders
+         WHERE company_id = ?
+           AND date(created_at) BETWEEN ? AND ?`
+      )
+      .get(companyId, from, to);
 
-  const inspections = db
-    .prepare(
-      `SELECT COUNT(1) AS cnt
-       FROM quality_inspections
-       WHERE company_id = ?
-         AND date(inspected_at) BETWEEN ? AND ?`
-    )
-    .get(companyId, from, to);
+    const inspections = db
+      .prepare(
+        `SELECT COUNT(1) AS cnt
+         FROM quality_inspections
+         WHERE company_id = ?
+           AND date(inspected_at) BETWEEN ? AND ?`
+      )
+      .get(companyId, from, to);
 
-  const results = db
-    .prepare(
-      `SELECT
-         COALESCE(SUM(good_qty), 0) AS goodQty,
-         COALESCE(SUM(defect_qty), 0) AS defectQty
-       FROM production_results
-       WHERE company_id = ?
-         AND date(event_ts) BETWEEN ? AND ?`
-    )
-    .get(companyId, from, to);
+    const results = db
+      .prepare(
+        `SELECT
+           COALESCE(SUM(good_qty), 0) AS goodQty,
+           COALESCE(SUM(defect_qty), 0) AS defectQty
+         FROM production_results
+         WHERE company_id = ?
+           AND date(event_ts) BETWEEN ? AND ?`
+      )
+      .get(companyId, from, to);
 
-  const defects = db
-    .prepare(
-      `SELECT COALESCE(SUM(qty), 0) AS qty
-       FROM quality_inspection_defects
-       WHERE company_id = ?
-         AND date(created_at) BETWEEN ? AND ?`
-    )
-    .get(companyId, from, to);
+    const defects = db
+      .prepare(
+        `SELECT COALESCE(SUM(qty), 0) AS qty
+         FROM quality_inspection_defects
+         WHERE company_id = ?
+           AND date(created_at) BETWEEN ? AND ?`
+      )
+      .get(companyId, from, to);
 
-  const lots = db
-    .prepare(
-      `SELECT COUNT(1) AS cnt
-       FROM lots
-       WHERE company_id = ?
-         AND date(created_at) BETWEEN ? AND ?`
-    )
-    .get(companyId, from, to);
+    const lots = db
+      .prepare(
+        `SELECT COUNT(1) AS cnt
+         FROM lots
+         WHERE company_id = ?
+           AND date(created_at) BETWEEN ? AND ?`
+      )
+      .get(companyId, from, to);
 
-  const telemetry = db
-    .prepare(
-      `SELECT COUNT(1) AS cnt
-       FROM telemetry_events
-       WHERE company_id = ?
-         AND date(event_ts) BETWEEN ? AND ?`
-    )
-    .get(companyId, from, to);
+    const telemetry = db
+      .prepare(
+        `SELECT COUNT(1) AS cnt
+         FROM telemetry_events
+         WHERE company_id = ?
+           AND date(event_ts) BETWEEN ? AND ?`
+      )
+      .get(companyId, from, to);
 
-  return res.json(
-    ok({
+    return {
       from,
       to,
       workOrdersTotal: workOrders.cnt || 0,
@@ -140,8 +172,10 @@ router.get('/summary', (req, res) => {
       inspectionDefectsTotal: defects.qty || 0,
       lotsCreated: lots.cnt || 0,
       telemetryEvents: telemetry.cnt || 0,
-    })
-  );
+    };
+  });
+
+  return res.json(ok(data));
 });
 
 router.get('/daily', (req, res) => {
@@ -152,72 +186,77 @@ router.get('/daily', (req, res) => {
   const { from, to, fromDate, toDate } = range;
   const days = buildDateList(fromDate, toDate);
 
-  const workOrdersRows = db
-    .prepare(
-      `SELECT date(created_at) AS day, COUNT(1) AS cnt
-       FROM work_orders
-       WHERE company_id = ?
-         AND date(created_at) BETWEEN ? AND ?
-       GROUP BY day`
-    )
-    .all(companyId, from, to);
+  const cacheKey = `daily|${companyId}|${from}|${to}`;
+  const payload = withCache(cacheKey, res, () => {
+    const workOrdersRows = db
+      .prepare(
+        `SELECT date(created_at) AS day, COUNT(1) AS cnt
+         FROM work_orders
+         WHERE company_id = ?
+           AND date(created_at) BETWEEN ? AND ?
+         GROUP BY day`
+      )
+      .all(companyId, from, to);
 
-  const inspectionsRows = db
-    .prepare(
-      `SELECT date(inspected_at) AS day, COUNT(1) AS cnt
-       FROM quality_inspections
-       WHERE company_id = ?
-         AND date(inspected_at) BETWEEN ? AND ?
-       GROUP BY day`
-    )
-    .all(companyId, from, to);
+    const inspectionsRows = db
+      .prepare(
+        `SELECT date(inspected_at) AS day, COUNT(1) AS cnt
+         FROM quality_inspections
+         WHERE company_id = ?
+           AND date(inspected_at) BETWEEN ? AND ?
+         GROUP BY day`
+      )
+      .all(companyId, from, to);
 
-  const defectsRows = db
-    .prepare(
-      `SELECT date(created_at) AS day, COALESCE(SUM(qty), 0) AS cnt
-       FROM quality_inspection_defects
-       WHERE company_id = ?
-         AND date(created_at) BETWEEN ? AND ?
-       GROUP BY day`
-    )
-    .all(companyId, from, to);
+    const defectsRows = db
+      .prepare(
+        `SELECT date(created_at) AS day, COALESCE(SUM(qty), 0) AS cnt
+         FROM quality_inspection_defects
+         WHERE company_id = ?
+           AND date(created_at) BETWEEN ? AND ?
+         GROUP BY day`
+      )
+      .all(companyId, from, to);
 
-  const lotsRows = db
-    .prepare(
-      `SELECT date(created_at) AS day, COUNT(1) AS cnt
-       FROM lots
-       WHERE company_id = ?
-         AND date(created_at) BETWEEN ? AND ?
-       GROUP BY day`
-    )
-    .all(companyId, from, to);
+    const lotsRows = db
+      .prepare(
+        `SELECT date(created_at) AS day, COUNT(1) AS cnt
+         FROM lots
+         WHERE company_id = ?
+           AND date(created_at) BETWEEN ? AND ?
+         GROUP BY day`
+      )
+      .all(companyId, from, to);
 
-  const telemetryRows = db
-    .prepare(
-      `SELECT date(event_ts) AS day, COUNT(1) AS cnt
-       FROM telemetry_events
-       WHERE company_id = ?
-         AND date(event_ts) BETWEEN ? AND ?
-       GROUP BY day`
-    )
-    .all(companyId, from, to);
+    const telemetryRows = db
+      .prepare(
+        `SELECT date(event_ts) AS day, COUNT(1) AS cnt
+         FROM telemetry_events
+         WHERE company_id = ?
+           AND date(event_ts) BETWEEN ? AND ?
+         GROUP BY day`
+      )
+      .all(companyId, from, to);
 
-  const workOrdersMap = toCountMap(workOrdersRows, 'day');
-  const inspectionsMap = toCountMap(inspectionsRows, 'day');
-  const defectsMap = toCountMap(defectsRows, 'day');
-  const lotsMap = toCountMap(lotsRows, 'day');
-  const telemetryMap = toCountMap(telemetryRows, 'day');
+    const workOrdersMap = toCountMap(workOrdersRows, 'day');
+    const inspectionsMap = toCountMap(inspectionsRows, 'day');
+    const defectsMap = toCountMap(defectsRows, 'day');
+    const lotsMap = toCountMap(lotsRows, 'day');
+    const telemetryMap = toCountMap(telemetryRows, 'day');
 
-  const data = days.map((day) => ({
-    date: day,
-    workOrdersCount: workOrdersMap.get(day) || 0,
-    inspectionsCount: inspectionsMap.get(day) || 0,
-    defectsCount: defectsMap.get(day) || 0,
-    lotsCount: lotsMap.get(day) || 0,
-    telemetryCount: telemetryMap.get(day) || 0,
-  }));
+    const data = days.map((day) => ({
+      date: day,
+      workOrdersCount: workOrdersMap.get(day) || 0,
+      inspectionsCount: inspectionsMap.get(day) || 0,
+      defectsCount: defectsMap.get(day) || 0,
+      lotsCount: lotsMap.get(day) || 0,
+      telemetryCount: telemetryMap.get(day) || 0,
+    }));
 
-  return res.json(ok({ from, to, items: data }));
+    return { from, to, items: data };
+  });
+
+  return res.json(ok(payload));
 });
 
 router.get('/top-defects', (req, res) => {
@@ -233,24 +272,29 @@ router.get('/top-defects', (req, res) => {
 
   const { from, to } = range;
 
-  const rows = db
-    .prepare(
-      `SELECT
-         dt.id,
-         dt.code,
-         dt.name,
-         COALESCE(SUM(qid.qty), 0) AS qty
-       FROM quality_inspection_defects qid
-       JOIN defect_types dt ON qid.defect_type_id = dt.id
-       WHERE qid.company_id = ?
-         AND date(qid.created_at) BETWEEN ? AND ?
-       GROUP BY dt.id
-       ORDER BY qty DESC
-       LIMIT ?`
-    )
-    .all(companyId, from, to, limit);
+  const cacheKey = `top-defects|${companyId}|${from}|${to}|${limit}`;
+  const payload = withCache(cacheKey, res, () => {
+    const rows = db
+      .prepare(
+        `SELECT
+           dt.id,
+           dt.code,
+           dt.name,
+           COALESCE(SUM(qid.qty), 0) AS qty
+         FROM quality_inspection_defects qid
+         JOIN defect_types dt ON qid.defect_type_id = dt.id
+         WHERE qid.company_id = ?
+           AND date(qid.created_at) BETWEEN ? AND ?
+         GROUP BY dt.id
+         ORDER BY qty DESC
+         LIMIT ?`
+      )
+      .all(companyId, from, to, limit);
 
-  return res.json(ok({ from, to, items: rows }));
+    return { from, to, items: rows };
+  });
+
+  return res.json(ok(payload));
 });
 
 module.exports = router;
