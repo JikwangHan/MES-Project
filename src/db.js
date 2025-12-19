@@ -392,6 +392,33 @@ const init = () => {
     ON work_order_lots (company_id, work_order_id);
   `);
 
+  // 리포트: KPI 캐시(운영 성능)
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS report_kpi_cache (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      company_id TEXT NOT NULL,
+      report_name TEXT NOT NULL,
+      from_date TEXT NOT NULL,
+      to_date TEXT NOT NULL,
+      params_json TEXT NOT NULL,
+      payload_json TEXT NOT NULL,
+      expires_at TEXT NOT NULL,
+      created_at TEXT NOT NULL DEFAULT (datetime('now')),
+      CONSTRAINT uniq_report_kpi_cache UNIQUE (
+        company_id,
+        report_name,
+        from_date,
+        to_date,
+        params_json
+      )
+    );
+  `);
+
+  db.exec(`
+    CREATE INDEX IF NOT EXISTS idx_report_kpi_cache_lookup
+    ON report_kpi_cache (company_id, report_name, expires_at);
+  `);
+
   // 감사 로그
   db.exec(`
     CREATE TABLE IF NOT EXISTS audit_logs (

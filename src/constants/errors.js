@@ -156,6 +156,10 @@ module.exports = {
     code: 'REPORT_LIMIT_INVALID',
     message: 'limit 값이 올바르지 않습니다.',
   },
+  REPORT_KPI_CACHE_MISS: {
+    code: 'REPORT_KPI_CACHE_MISS',
+    message: '리포트 캐시가 존재하지 않습니다.',
+  },
   WO_LOT_LINK_DUPLICATE: {
     code: 'WO_LOT_LINK_DUPLICATE',
     message: '작업지시와 LOT 링크가 이미 존재합니다.',
