@@ -1,0 +1,15 @@
+{
+  "name": "edge-gateway",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Edge gateway for PLC/Modbus/Serial adapters and MES telemetry uplink",
+  "main": "src/index.js",
+  "scripts": {
+    "start": "node src/index.js",
+    "once": "node src/index.js --once",
+    "smoke": "pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/smoke-gateway.ps1"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}
