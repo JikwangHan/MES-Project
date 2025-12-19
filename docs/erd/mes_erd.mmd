@@ -1,6 +1,6 @@
 %% Auto-generated: tools/erd/generate_erd.js
 %% Source DB: data/mes.db
-%% GeneratedAt: 2025-12-19T04:28:36.696Z
+%% GeneratedAt: 2025-12-19T05:34:30.172Z
 
 erDiagram
   audit_logs {
@@ -185,6 +185,17 @@ erDiagram
     text note
     text created_at
     int lot_id
+  }
+  report_kpi_cache {
+    int id PK
+    text company_id
+    text report_name
+    text from_date
+    text to_date
+    text params_json
+    text payload_json
+    text expires_at
+    text created_at
   }
   telemetry_events {
     int id PK

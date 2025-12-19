@@ -142,6 +142,15 @@ function Clear-ErdEnv {
   Remove-Item Env:SMOKE_GEN_ERD,Env:SMOKE_GEN_ERD_RENDER,Env:SMOKE_GEN_ERD_STRICT,Env:SMOKE_GEN_ERD_ENFORCE -ErrorAction SilentlyContinue
 }
 
+function Set-PurgeProbeEnv {
+  if (-not $env:RELEASE_PROBE_PURGE) { $env:RELEASE_PROBE_PURGE = "1" }
+  if (-not $env:RELEASE_PROBE_PURGE_STRICT) { $env:RELEASE_PROBE_PURGE_STRICT = "1" }
+}
+
+function Clear-PurgeProbeEnv {
+  Remove-Item Env:RELEASE_PROBE_PURGE,Env:RELEASE_PROBE_PURGE_STRICT -ErrorAction SilentlyContinue
+}
+
 function Invoke-ReportCacheProbe {
   param(
     [string]$BaseUrl,
@@ -233,7 +242,9 @@ $serverProc = $null
 try {
   $serverProc = Start-ServerIfNeeded $BaseUrl $HealthUrl
   Set-ErdEnv
+  Set-PurgeProbeEnv
   Run-Smoke
+  Clear-PurgeProbeEnv
   Clear-ErdEnv
 
   $headers = @{ "x-company-id" = "HEALTH"; "x-role" = "VIEWER" }
