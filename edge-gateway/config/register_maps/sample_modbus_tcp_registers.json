@@ -1,0 +1,7 @@
+{
+  "points": [
+    { "name": "temperature", "address": 0, "type": "float", "scale": 1 },
+    { "name": "pressure", "address": 2, "type": "float", "scale": 1 },
+    { "name": "alarm", "address": 4, "type": "bool" }
+  ]
+}

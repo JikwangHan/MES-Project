@@ -1,8 +1,6 @@
 const fs = require('fs');
 const path = require('path');
 const { loadProfile } = require('./config');
-const { readModbusTcp } = require('./adapters/modbus_tcp');
-const { readModbusRtu } = require('./adapters/modbus_rtu');
 const { normalizeTelemetry } = require('./normalizer/normalize');
 const { sendTelemetry } = require('./uplink/mes_telemetry_client');
 const { writeRawLog } = require('./log/raw_log_store');
@@ -18,6 +16,7 @@ const env = {
   deviceKeyId: process.env.MES_DEVICE_KEY || '',
   deviceSecret: process.env.MES_DEVICE_SECRET || '',
   signingEnabled: process.env.MES_SIGNING_ENABLED === '1',
+  canonical: process.env.MES_CANONICAL || 'stable-json',
   pollMs: Number(process.env.GATEWAY_POLL_MS || 1000),
   rawDir: process.env.GATEWAY_RAWLOG_DIR || path.join(__dirname, '..', 'data', 'rawlogs'),
   retryDir: process.env.GATEWAY_RETRY_DIR || path.join(__dirname, '..', 'data', 'retry'),
@@ -30,20 +29,42 @@ function ensureDir(dir) {
   }
 }
 
-async function readFromAdapter(profile) {
-  if (profile.adapter === 'modbus_tcp') {
-    return readModbusTcp(profile);
+function stubMetricValue(type) {
+  switch (String(type || '').toLowerCase()) {
+    case 'float':
+      return 12.34;
+    case 'int':
+      return 123;
+    case 'bool':
+      return true;
+    default:
+      return 0;
   }
-  if (profile.adapter === 'modbus_rtu') {
-    return readModbusRtu(profile);
+}
+
+async function readFromAdapter(profile) {
+  if (profile.adapter === 'modbus_tcp' || profile.adapter === 'modbus_rtu') {
+    const metrics = {};
+    const items = Array.isArray(profile.metrics) ? profile.metrics : [];
+    for (const item of items) {
+      if (!item || !item.name) {
+        continue;
+      }
+      metrics[item.name] = stubMetricValue(item.type);
+    }
+    return {
+      adapter: profile.adapter,
+      equipmentCode: profile.equipmentCode,
+      metrics,
+    };
   }
   throw new Error(`Unsupported adapter: ${profile.adapter}`);
 }
 
 async function runCycle() {
   const profile = loadProfile(env.profile);
-  const metrics = await readFromAdapter(profile);
-  const payload = normalizeTelemetry(profile, metrics);
+  const adapterResult = await readFromAdapter(profile);
+  const payload = normalizeTelemetry(profile, adapterResult);
 
   ensureDir(env.rawDir);
   ensureDir(env.retryDir);
@@ -58,6 +79,7 @@ async function runCycle() {
       deviceKeyId: env.deviceKeyId,
       deviceSecret: env.deviceSecret,
       signingEnabled: env.signingEnabled,
+      canonical: env.canonical,
       payload,
     });
     if (!result.ok) {

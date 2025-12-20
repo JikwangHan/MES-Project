@@ -39,7 +39,6 @@ You should see an uplink success log and one telemetry event inserted.
 
 ## Config
 
-See `config/sample_modbus_tcp.json` for a sample register map.
 
 ## Smoke test
 
@@ -50,4 +49,3 @@ pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/smoke-gateway.ps1
 
 Notes:
 - Modbus RTU adapter is a stub for now.
-- Modbus TCP adapter uses a simulated read until a real driver is added.

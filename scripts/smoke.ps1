@@ -1,9 +1,10 @@
-# 간단 스모크 테스트 (PowerShell + curl.exe)
+﻿# 간단 스모크 테스트 (PowerShell + curl.exe)
 # 전제: 서버가 이미 실행 중이어야 합니다. (npm start)
 # 검증: 품목유형 생성 → 품목 2개 생성 → BOM 생성/조회 → 실패 케이스 1개
 
 set-strictmode -version latest
 $ErrorActionPreference = "Stop"
+$PSDefaultParameterValues["Get-Content:Encoding"] = "utf8"
 
 function Assert-SuccessJson($text) {
   if ($text -notmatch '"success":\s*true') {
@@ -25,7 +26,8 @@ $companyA = "COMPANY-A"
 # 공통 유틸 (Ticket-06 스모크에서 사용)
 function New-TempJsonFile($prefix, $jsonText) {
   $path = Join-Path $env:TEMP "$($prefix)_$((Get-Date -Format 'yyyyMMddHHmmssfff')).json"
-  Set-Content -Path $path -Value $jsonText -Encoding utf8
+  $utf8NoBom = New-Object System.Text.UTF8Encoding($false)
+  [IO.File]::WriteAllText($path, $jsonText, $utf8NoBom)
   return $path
 }
 
@@ -1657,4 +1659,5 @@ if ([int]$after -le 10) {
 # Optional ERD Gate
 # ---------------------------
 Invoke-ErdGate -DbPath "data/mes.db" -OutDir "docs/erd"
+
 

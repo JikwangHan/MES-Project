@@ -1,0 +1,21 @@
+{
+  "profile": "sample_modbus_rtu",
+  "adapter": "modbus_rtu",
+  "connection": {
+    "unitId": 1
+  },
+  "serial": {
+    "port": "COM3",
+    "baudRate": 9600,
+    "parity": "none",
+    "dataBits": 8,
+    "stopBits": 1,
+    "timeoutMs": 1000
+  },
+  "equipmentCode": "EQ-GW-RTU-001",
+  "registerMapFile": "register_maps/sample_modbus_rtu_registers.json",
+  "metrics": [
+    { "name": "rpm", "address": 10, "type": "int" },
+    { "name": "vibration", "address": 12, "type": "float" }
+  ]
+}
