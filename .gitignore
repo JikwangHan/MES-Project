@@ -26,6 +26,11 @@ data/
 ~$*
 *.bak
 
+# 테스트/증빙 로그
+logs/
+artifacts/
+evidence/
+
 # ERD 산출물(이미지/벡터)
 docs/erd/*.png
 docs/erd/*.pdf
