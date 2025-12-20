@@ -13,7 +13,3 @@ function loadProfile(profileName) {
   if (!profile.adapter || !profile.equipmentCode) {
     throw new Error('Profile missing adapter or equipmentCode');
   }
-  return profile;
-}
-
-module.exports = { loadProfile };

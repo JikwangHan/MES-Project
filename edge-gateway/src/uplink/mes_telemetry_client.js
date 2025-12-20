@@ -1,5 +1,4 @@
 const crypto = require('crypto');
-
 function sha256Hex(str) {
   return crypto.createHash('sha256').update(str, 'utf8').digest('hex');
 }
@@ -21,18 +20,10 @@ async function sendTelemetry({
   deviceKeyId,
   deviceSecret,
   signingEnabled,
-  canonical,
-  payload,
-}) {
-  const bodyRaw = JSON.stringify(payload);
   const headers = {
     'Content-Type': 'application/json',
     'x-company-id': companyId,
     'x-role': role,
-  };
-  if (canonical) {
-    headers['x-canonical'] = canonical;
-  }
 
   if (signingEnabled) {
     if (!deviceKeyId || !deviceSecret) {

@@ -11,4 +11,4 @@
     { "name": "temperature", "address": 0, "type": "float" },
     { "name": "pressure", "address": 2, "type": "float" }
   ]
-}
+
