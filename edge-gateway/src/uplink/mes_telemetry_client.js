@@ -1,6 +1,4 @@
 const crypto = require('crypto');
-const { stableStringify } = require('../util/canonical');
-
 function sha256Hex(str) {
   return crypto.createHash('sha256').update(str, 'utf8').digest('hex');
 }
@@ -15,13 +13,6 @@ function buildSignature({ companyId, deviceKeyId, deviceSecret, ts, nonce, bodyR
   return hmac256Hex(deviceSecret, canonical);
 }
 
-function buildBodyRaw(payload, canonical) {
-  if (canonical === 'legacy-json') {
-    return JSON.stringify(payload);
-  }
-  return stableStringify(payload);
-}
-
 async function sendTelemetry({
   baseUrl,
   companyId,
@@ -29,17 +20,10 @@ async function sendTelemetry({
   deviceKeyId,
   deviceSecret,
   signingEnabled,
-  payload,
-  canonical,
-}) {
-  const canon = canonical || 'stable-json';
-  const bodyRaw = buildBodyRaw(payload, canon);
   const headers = {
     'Content-Type': 'application/json',
     'x-company-id': companyId,
     'x-role': role,
-    'x-canonical': canon,
-  };
 
   if (signingEnabled) {
     if (!deviceKeyId || !deviceSecret) {

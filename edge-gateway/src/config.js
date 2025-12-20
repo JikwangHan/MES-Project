@@ -13,17 +13,3 @@ function loadProfile(profileName) {
   if (!profile.adapter || !profile.equipmentCode) {
     throw new Error('Profile missing adapter or equipmentCode');
   }
-  if (profile.registerMapFile) {
-    const mapPath = path.isAbsolute(profile.registerMapFile)
-      ? profile.registerMapFile
-      : path.join(configDir, profile.registerMapFile);
-    if (!fs.existsSync(mapPath)) {
-      throw new Error(`Register map not found: ${mapPath}`);
-    }
-    const mapRaw = fs.readFileSync(mapPath, 'utf8');
-    profile.registerMap = JSON.parse(mapRaw);
-  }
-  return profile;
-}
-
-module.exports = { loadProfile };
