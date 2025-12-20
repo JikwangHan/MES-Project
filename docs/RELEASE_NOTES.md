@@ -23,3 +23,19 @@
 ### 운영 영향
 - 운영 영향 없음
 - 자동 키 발급은 smoke 전용 옵션으로만 사용
+
+## release-v0.3.15
+
+### 기준 태그
+- baseline-v0.3.15 (develop 게이트 통과 스냅샷)
+
+### 테스트 매트릭스 (main 기준)
+- MES smoke (PowerShell 5.1): PASS
+- MES smoke (pwsh): PASS
+
+### 증빙 로그 경로 (main)
+- logs/main-smoke-ps51-after-merge.log
+- logs/main-smoke-pwsh-after-merge.log
+
+### 변경 요약
+- develop 검증 변경을 main에 병합하여 재현성 확인
