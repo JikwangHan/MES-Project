@@ -1,4 +1,6 @@
 const crypto = require('crypto');
+const { stableStringify } = require('../util/canonical');
+
 function sha256Hex(str) {
   return crypto.createHash('sha256').update(str, 'utf8').digest('hex');
 }
@@ -13,6 +15,13 @@ function buildSignature({ companyId, deviceKeyId, deviceSecret, ts, nonce, bodyR
   return hmac256Hex(deviceSecret, canonical);
 }
 
+function buildBody(payload, canonical) {
+  if (canonical === 'legacy-json') {
+    return JSON.stringify(payload || {});
+  }
+  return stableStringify(payload || {});
+}
+
 async function sendTelemetry({
   baseUrl,
   companyId,
@@ -20,10 +29,15 @@ async function sendTelemetry({
   deviceKeyId,
   deviceSecret,
   signingEnabled,
+  canonical,
+  payload,
+}) {
+  const bodyRaw = buildBody(payload, canonical);
   const headers = {
     'Content-Type': 'application/json',
     'x-company-id': companyId,
     'x-role': role,
+  };
 
   if (signingEnabled) {
     if (!deviceKeyId || !deviceSecret) {
@@ -43,6 +57,7 @@ async function sendTelemetry({
     headers['x-ts'] = String(ts);
     headers['x-nonce'] = nonce;
     headers['x-signature'] = signature;
+    headers['x-canonical'] = canonical || 'stable-json';
   }
 
   const res = await fetch(`${baseUrl}/api/v1/telemetry/events`, {

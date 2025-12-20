@@ -16,6 +16,7 @@ const env = {
   deviceKeyId: process.env.MES_DEVICE_KEY || '',
   deviceSecret: process.env.MES_DEVICE_SECRET || '',
   signingEnabled: process.env.MES_SIGNING_ENABLED === '1',
+  canonical: process.env.MES_CANONICAL || 'stable-json',
   pollMs: Number(process.env.GATEWAY_POLL_MS || 1000),
   rawDir: process.env.GATEWAY_RAWLOG_DIR || path.join(__dirname, '..', 'data', 'rawlogs'),
   retryDir: process.env.GATEWAY_RETRY_DIR || path.join(__dirname, '..', 'data', 'retry'),
@@ -28,13 +29,42 @@ function ensureDir(dir) {
   }
 }
 
+function stubMetricValue(type) {
+  switch (String(type || '').toLowerCase()) {
+    case 'float':
+      return 12.34;
+    case 'int':
+      return 123;
+    case 'bool':
+      return true;
+    default:
+      return 0;
+  }
+}
+
 async function readFromAdapter(profile) {
-  if (profile.adapter === 'modbus_tcp') {
+  if (profile.adapter === 'modbus_tcp' || profile.adapter === 'modbus_rtu') {
+    const metrics = {};
+    const items = Array.isArray(profile.metrics) ? profile.metrics : [];
+    for (const item of items) {
+      if (!item || !item.name) {
+        continue;
+      }
+      metrics[item.name] = stubMetricValue(item.type);
+    }
+    return {
+      adapter: profile.adapter,
+      equipmentCode: profile.equipmentCode,
+      metrics,
+    };
   }
   throw new Error(`Unsupported adapter: ${profile.adapter}`);
 }
 
-  const payload = normalizeTelemetry(profile, metrics);
+async function runCycle() {
+  const profile = loadProfile(env.profile);
+  const adapterResult = await readFromAdapter(profile);
+  const payload = normalizeTelemetry(profile, adapterResult);
 
   ensureDir(env.rawDir);
   ensureDir(env.retryDir);
