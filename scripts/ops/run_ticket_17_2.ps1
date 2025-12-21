@@ -27,6 +27,15 @@ $LogsDir  = Join-Path $RepoRoot "logs"
 # Ticket-17.2 체크리스트 문서 경로(없으면 새로 만듭니다)
 $ChecklistPath = Join-Path $RepoRoot "docs\testing\Ticket-17.2_Test_Checklist.md"
 
+$BaseUrl = $env:MES_BASE_URL
+if (-not $BaseUrl) { $BaseUrl = "http://localhost:4000" }
+$CompanyId = $env:MES_COMPANY_ID
+if (-not $CompanyId) { $CompanyId = "COMPANY-A" }
+$Role = "OPERATOR"
+$EquipmentCode = $env:T17_EQUIPMENT_CODE
+if (-not $EquipmentCode) { $EquipmentCode = "T17-2-EQ-001" }
+$CanonicalMode = "stable-json"
+
 function Ensure-Dir([string]$Path) {
   if (-not (Test-Path $Path)) { New-Item -ItemType Directory -Path $Path | Out-Null }
 }
@@ -49,7 +58,13 @@ function Run-Capture {
   Write-Host "    $Exe $argString"
 
   Ensure-Dir (Split-Path $OutFile -Parent)
-  $lines = & $Exe @ArgList 2>&1
+  $oldEA = $ErrorActionPreference
+  $ErrorActionPreference = "Continue"
+  try {
+    $lines = & $Exe @ArgList 2>&1
+  } finally {
+    $ErrorActionPreference = $oldEA
+  }
   $lines | Out-File -FilePath $OutFile -Encoding utf8
   $exitCode = $LASTEXITCODE
   if ($exitCode -ne 0) {
@@ -63,13 +78,13 @@ function Extract-EvidenceLines {
   param([string]$LogPath)
 
   # 근거 라인 표준:
-  # [PASS] Ticket-xx ...
-  # [FAIL] Ticket-xx ... | reason=...
+  # [PASS] Ticket-17.2-XX ...
+  # [FAIL] Ticket-17.2-XX ... | reason=...
   $lines = Get-Content -Path $LogPath -Encoding utf8
 
   $evidence = @()
   foreach ($line in $lines) {
-    if ($line -match '^\[(PASS|FAIL)\]\s+(Ticket-[0-9A-Za-z\.\-]+)\s*(.*)$') {
+    if ($line -match '^\[(PASS|FAIL)\]\s+(Ticket-17\.2-[0-9]{2,})\s*(.*)$') {
       $status = $matches[1]
       $testId = $matches[2]
       $title  = $matches[3].Trim()
@@ -129,6 +144,229 @@ function Upsert-ChecklistAutoSection {
   $new | Out-File -FilePath $Path -Encoding utf8
 }
 
+function Invoke-CurlJson {
+  param(
+    [string]$Method,
+    [string]$Url,
+    [hashtable]$Headers,
+    [string]$Body = $null,
+    [string]$BodyFile = $null
+  )
+  $respPath = New-TemporaryFile
+  $args = @('-s', '-o', $respPath, '-w', '%{http_code}', '-X', $Method, '--url', $Url)
+  foreach ($k in $Headers.Keys) {
+    $args += @('-H', "$($k): $($Headers[$k])")
+  }
+  if ($BodyFile) {
+    $args += @('--data', "@$BodyFile")
+  } elseif ($null -ne $Body -and $Body -ne "") {
+    $args += @('--data', $Body)
+  }
+  $status = & curl.exe @args
+  $raw = ''
+  if (Test-Path $respPath) {
+    $raw = Get-Content $respPath -Raw
+    Remove-Item $respPath -Force -ErrorAction SilentlyContinue
+  }
+  $json = $null
+  if ($raw) {
+    try { $json = $raw | ConvertFrom-Json } catch { }
+  }
+  return @{ Status = $status; Raw = $raw; Json = $json }
+}
+
+function Sha256Hex([string]$Text) {
+  $sha = [System.Security.Cryptography.SHA256]::Create()
+  $bytes = [System.Text.Encoding]::UTF8.GetBytes($Text)
+  ($sha.ComputeHash($bytes) | ForEach-Object { $_.ToString("x2") }) -join ""
+}
+
+function HmacSha256Hex([string]$Secret, [string]$Canonical) {
+  $keyBytes = [System.Text.Encoding]::UTF8.GetBytes($Secret)
+  $h = New-Object System.Security.Cryptography.HMACSHA256 -ArgumentList (,$keyBytes)
+  $msgBytes = [System.Text.Encoding]::UTF8.GetBytes($Canonical)
+  ($h.ComputeHash($msgBytes) | ForEach-Object { $_.ToString("x2") }) -join ""
+}
+
+function ConvertTo-StableJson {
+  param([Parameter(Mandatory=$true)][object]$Obj)
+
+  function Normalize($v) {
+    if ($null -eq $v) { return $null }
+    if ($v -is [hashtable] -or $v.PSObject.TypeNames[0] -eq 'System.Management.Automation.PSCustomObject') {
+      $ht = [ordered]@{}
+      $props = @()
+      if ($v -is [hashtable]) { $props = $v.Keys } else { $props = $v.PSObject.Properties.Name }
+      foreach ($k in ($props | Sort-Object)) {
+        $val = if ($v -is [hashtable]) { $v[$k] } else { $v.$k }
+        $ht[$k] = Normalize $val
+      }
+      return $ht
+    }
+    if ($v -is [System.Collections.IEnumerable] -and -not ($v -is [string])) {
+      $arr = @()
+      foreach ($x in $v) { $arr += ,(Normalize $x) }
+      return $arr
+    }
+    return $v
+  }
+
+  $n = Normalize $Obj
+  return ($n | ConvertTo-Json -Depth 50 -Compress)
+}
+
+function Write-T17Line {
+  param(
+    [string]$Status,
+    [string]$TestId,
+    [string]$Message,
+    [string]$LogPath
+  )
+  $line = "[$Status] $TestId $Message"
+  Write-Host $line
+  $line | Out-File -FilePath $LogPath -Encoding utf8 -Append
+}
+
+function Get-ErrorCode {
+  param($Resp)
+  if ($Resp -and $Resp.Json -and $Resp.Json.error -and $Resp.Json.error.code) {
+    return $Resp.Json.error.code
+  }
+  return "-"
+}
+
+function Ensure-EquipmentAndKey {
+  param([string]$LogPath)
+  $headers = @{
+    "x-company-id" = $CompanyId
+    "x-role" = $Role
+    "Content-Type" = "application/json"
+  }
+
+  $list = Invoke-CurlJson "GET" "$BaseUrl/api/v1/equipments" $headers
+  if ($list.Status -ne "200") {
+    $script:EnsureError = "equipment 목록 조회 실패 (status=$($list.Status))"
+    return $null
+  }
+  $equip = $list.Json.data | Where-Object { $_.code -eq $EquipmentCode } | Select-Object -First 1
+  if (-not $equip) {
+    $bodyObj = @{
+      name = "T17-2 장비"
+      code = $EquipmentCode
+      commType = "HTTP"
+      commConfig = @{ url = "http://dummy" }
+      isActive = 1
+    }
+    $bodyJson = ($bodyObj | ConvertTo-Json -Depth 10 -Compress)
+    $create = Invoke-CurlJson "POST" "$BaseUrl/api/v1/equipments" $headers $bodyJson
+    if ($create.Status -ne "201" -and $create.Status -ne "409") {
+      $script:EnsureError = "equipment 생성 실패 (status=$($create.Status))"
+      $list = Invoke-CurlJson "GET" "$BaseUrl/api/v1/equipments" $headers
+      $equip = $list.Json.data | Select-Object -First 1
+    } else {
+      $list = Invoke-CurlJson "GET" "$BaseUrl/api/v1/equipments" $headers
+      $equip = $list.Json.data | Where-Object { $_.code -eq $EquipmentCode } | Select-Object -First 1
+    }
+  }
+
+  if (-not $equip) {
+    if (-not $script:EnsureError) {
+      $script:EnsureError = "equipment 조회 실패 (code=$EquipmentCode)"
+    }
+    return $null
+  }
+
+  $issue = Invoke-CurlJson "POST" "$BaseUrl/api/v1/equipments/$($equip.id)/device-key" $headers "{}"
+  if ($issue.Status -ne "201" -and $issue.Status -ne "200") {
+    $script:EnsureError = "device-key 발급 실패 (status=$($issue.Status))"
+    return $null
+  }
+  $script:EnsureError = $null
+  return @{
+    EquipmentId = $equip.id
+    EquipmentCode = $equip.code
+    DeviceKeyId = $issue.Json.data.deviceKeyId
+    DeviceSecret = $issue.Json.data.deviceSecret
+  }
+}
+
+function Send-SignedTelemetry {
+  param(
+    [string]$DeviceKeyId,
+    [string]$DeviceSecret,
+    [string]$EquipmentCodeValue,
+    [string]$Nonce,
+    [int]$Ts,
+    [string]$CanonicalOverride = $CanonicalMode
+  )
+
+  $payload = @{
+    equipmentCode = $EquipmentCodeValue
+    eventType = "TELEMETRY"
+    payload = @{
+      state = "RUN"
+      speed = 123
+    }
+  }
+
+  $bodyRaw = ConvertTo-StableJson $payload
+  $bodyHash = Sha256Hex $bodyRaw
+  $canonical = "$CompanyId`n$DeviceKeyId`n$Ts`n$Nonce`n$bodyHash"
+  $signature = HmacSha256Hex $DeviceSecret $canonical
+
+  $headers = @{
+    "x-company-id" = $CompanyId
+    "x-role" = $Role
+    "x-device-key" = $DeviceKeyId
+    "x-ts" = "$Ts"
+    "x-nonce" = $Nonce
+    "x-signature" = $signature
+    "x-canonical" = $CanonicalOverride
+    "Content-Type" = "application/json"
+  }
+
+  $tmpBody = New-TemporaryFile
+  $utf8NoBom = New-Object System.Text.UTF8Encoding($false)
+  [IO.File]::WriteAllText($tmpBody, $bodyRaw, $utf8NoBom)
+  $resp = Invoke-CurlJson "POST" "$BaseUrl/api/v1/telemetry/events" $headers $null $tmpBody
+  Remove-Item $tmpBody -Force -ErrorAction SilentlyContinue
+  $resp.BodyRaw = $bodyRaw
+  return $resp
+}
+
+function Test-Health {
+  try {
+    $headers = @{ "x-company-id" = $CompanyId; "x-role" = "VIEWER" }
+    $resp = Invoke-WebRequest -Uri "$BaseUrl/health" -Headers $headers -TimeoutSec 3 -UseBasicParsing
+    return ($resp.StatusCode -eq 200)
+  } catch {
+    return $false
+  }
+}
+
+function Start-ServerIfNeeded {
+  if (Test-Health) {
+    return $null
+  }
+
+  if (-not $env:MES_MASTER_KEY) {
+    $env:MES_MASTER_KEY = "dev-master-key"
+  }
+
+  Write-Host "==> 서버가 실행 중이 아닙니다. node src/server.js로 자동 시작합니다."
+  $proc = Start-Process -FilePath "node" -ArgumentList "src/server.js" -WorkingDirectory $RepoRoot -PassThru
+  $limit = (Get-Date).AddSeconds(15)
+  while ((Get-Date) -lt $limit) {
+    if (Test-Health) { return $proc }
+    Start-Sleep -Milliseconds 500
+  }
+
+  if ($proc) {
+    try { Stop-Process -Id $proc.Id -Force -ErrorAction SilentlyContinue } catch {}
+  }
+  throw "서버 헬스 확인 실패: $BaseUrl/health"
+}
+
 # -------------------------
 # 실행 시작
 # -------------------------
@@ -138,6 +376,10 @@ $stamp = NowStamp
 $mesSmokePs51 = Join-Path $LogsDir "ticket17_2-mes-smoke-ps51-$stamp.log"
 $mesSmokePwsh = Join-Path $LogsDir "ticket17_2-mes-smoke-pwsh-$stamp.log"
 $gwSmokePs51  = Join-Path $LogsDir "ticket17_2-gw-smoke-ps51-$stamp.log"
+$ticketLog    = Join-Path $LogsDir "ticket17_2-cases-$stamp.log"
+$ticketErrLog = Join-Path $LogsDir "ticket17_2-errors-$stamp.log"
+
+$serverProc = Start-ServerIfNeeded
 
 # 1) MES smoke (Windows PowerShell 5.1)
 Run-Capture -Label "MES smoke (PS 5.1)" `
@@ -176,11 +418,137 @@ if ($RunGatewaySmoke) {
   }
 }
 
-# 4) 근거 라인 수집 및 체크리스트 갱신
+# 4) Ticket-17.2 전용 테스트 실행
+$passCount = 0
+$failCount = 0
+
+function Record-Result {
+  param([string]$Status, [string]$TestId, [string]$Message)
+  Write-T17Line $Status $TestId $Message $ticketLog
+  if ($Status -eq "PASS") { $script:passCount += 1 } else { $script:failCount += 1 }
+}
+
+# 4-1) Health 200
+$healthHeaders = @{ "x-company-id" = $CompanyId; "x-role" = "VIEWER" }
+$health = Invoke-CurlJson "GET" "$BaseUrl/health" $healthHeaders
+if ($health.Status -eq "200") {
+  Record-Result "PASS" "Ticket-17.2-01" "health 200 확인"
+} else {
+  Record-Result "FAIL" "Ticket-17.2-01" "health 실패 (status=$($health.Status))"
+}
+
+# 4-2) 장비/키 준비
+$ek = Ensure-EquipmentAndKey -LogPath $ticketLog
+if (-not $ek) {
+  $msg = $script:EnsureError
+  if (-not $msg) { $msg = "telemetry 준비 실패(장비키 없음)" }
+  Record-Result "FAIL" "Ticket-17.2-02" $msg
+  Record-Result "FAIL" "Ticket-17.2-03" "telemetry 준비 실패(장비키 없음)"
+} else {
+  Record-Result "PASS" "Ticket-17.2-02" "device-key 발급 성공"
+  # 4-3) 정상 telemetry
+  $ts = [int][Math]::Floor((Get-Date).ToUniversalTime().Subtract([datetime]'1970-01-01').TotalSeconds)
+  $nonce = [guid]::NewGuid().ToString("N")
+  $ok = Send-SignedTelemetry -DeviceKeyId $ek.DeviceKeyId -DeviceSecret $ek.DeviceSecret -EquipmentCodeValue $ek.EquipmentCode -Nonce $nonce -Ts $ts
+  if ($ok.Status -eq "201") {
+    Record-Result "PASS" "Ticket-17.2-03" "telemetry 정상 업로드 201"
+  } else {
+    $code = Get-ErrorCode $ok
+    if ($ok.Raw) { $ok.Raw | Out-File -FilePath $ticketErrLog -Encoding utf8 -Append }
+    if ($ok.BodyRaw) { "BODY:$($ok.BodyRaw)" | Out-File -FilePath $ticketErrLog -Encoding utf8 -Append }
+    Record-Result "FAIL" "Ticket-17.2-03" "telemetry 정상 업로드 실패 (status=$($ok.Status), code=$code)"
+  }
+
+  # 4-4) 서명 불일치
+  $bad = $ok
+  $badNonce = [guid]::NewGuid().ToString("N")
+  $badSig = Send-SignedTelemetry -DeviceKeyId $ek.DeviceKeyId -DeviceSecret ($ek.DeviceSecret + "x") -EquipmentCodeValue $ek.EquipmentCode -Nonce $badNonce -Ts $ts
+  if ($badSig.Status -eq "401") {
+    Record-Result "PASS" "Ticket-17.2-04" "서명 불일치 거부 401"
+  } else {
+    $code = Get-ErrorCode $badSig
+    if ($badSig.Raw) { $badSig.Raw | Out-File -FilePath $ticketErrLog -Encoding utf8 -Append }
+    if ($badSig.BodyRaw) { "BODY:$($badSig.BodyRaw)" | Out-File -FilePath $ticketErrLog -Encoding utf8 -Append }
+    Record-Result "FAIL" "Ticket-17.2-04" "서명 불일치 거부 실패 (status=$($badSig.Status), code=$code)"
+  }
+
+  # 4-5) nonce 재사용
+  $replayNonce = [guid]::NewGuid().ToString("N")
+  $first = Send-SignedTelemetry -DeviceKeyId $ek.DeviceKeyId -DeviceSecret $ek.DeviceSecret -EquipmentCodeValue $ek.EquipmentCode -Nonce $replayNonce -Ts $ts
+  $second = Send-SignedTelemetry -DeviceKeyId $ek.DeviceKeyId -DeviceSecret $ek.DeviceSecret -EquipmentCodeValue $ek.EquipmentCode -Nonce $replayNonce -Ts $ts
+  if ($first.Status -eq "201" -and $second.Status -eq "401") {
+    Record-Result "PASS" "Ticket-17.2-05" "nonce 재사용 거부 401"
+  } else {
+    $code = Get-ErrorCode $second
+    if ($first.Raw) { $first.Raw | Out-File -FilePath $ticketErrLog -Encoding utf8 -Append }
+    if ($second.Raw) { $second.Raw | Out-File -FilePath $ticketErrLog -Encoding utf8 -Append }
+    if ($first.BodyRaw) { "BODY:$($first.BodyRaw)" | Out-File -FilePath $ticketErrLog -Encoding utf8 -Append }
+    if ($second.BodyRaw) { "BODY:$($second.BodyRaw)" | Out-File -FilePath $ticketErrLog -Encoding utf8 -Append }
+    Record-Result "FAIL" "Ticket-17.2-05" "nonce 재사용 거부 실패 (1st=$($first.Status), 2nd=$($second.Status), code=$code)"
+  }
+
+  # 4-6) equipmentCode 누락
+  $ts2 = $ts + 1
+  $nonce2 = [guid]::NewGuid().ToString("N")
+  $payload = @{ eventType = "TELEMETRY"; payload = @{ state = "RUN" } }
+  $bodyRaw = ConvertTo-StableJson $payload
+  $bodyHash = Sha256Hex $bodyRaw
+  $canonical = "$CompanyId`n$($ek.DeviceKeyId)`n$ts2`n$nonce2`n$bodyHash"
+  $signature = HmacSha256Hex $ek.DeviceSecret $canonical
+  $headers = @{
+    "x-company-id" = $CompanyId
+    "x-role" = $Role
+    "x-device-key" = $ek.DeviceKeyId
+    "x-ts" = "$ts2"
+    "x-nonce" = $nonce2
+    "x-signature" = $signature
+    "x-canonical" = $CanonicalMode
+    "Content-Type" = "application/json"
+  }
+  $tmpBody2 = New-TemporaryFile
+  $utf8NoBom2 = New-Object System.Text.UTF8Encoding($false)
+  [IO.File]::WriteAllText($tmpBody2, $bodyRaw, $utf8NoBom2)
+  $missingCode = Invoke-CurlJson "POST" "$BaseUrl/api/v1/telemetry/events" $headers $null $tmpBody2
+  Remove-Item $tmpBody2 -Force -ErrorAction SilentlyContinue
+  if ($missingCode.Status -eq "400") {
+    Record-Result "PASS" "Ticket-17.2-06" "equipmentCode 누락 400"
+  } else {
+    Record-Result "FAIL" "Ticket-17.2-06" "equipmentCode 누락 거부 실패 (status=$($missingCode.Status))"
+  }
+}
+
+# 4-7) Gateway smoke 결과 확인 (옵션)
+if ($RunGatewaySmoke) {
+  if (Test-Path $gwSmokePs51) {
+    $gwLines = Get-Content -Path $gwSmokePs51 -Encoding utf8
+    if ($gwLines -match "\[gateway\] uplink ok 201") {
+      Record-Result "PASS" "Ticket-17.2-07" "gateway uplink 201 확인"
+    } else {
+      Record-Result "FAIL" "Ticket-17.2-07" "gateway uplink 201 미확인"
+    }
+  } else {
+    Record-Result "FAIL" "Ticket-17.2-07" "gateway 로그 없음"
+  }
+}
+
+# 4-8) raw log 생성 확인 (옵션)
+if ($RunGatewaySmoke) {
+  $rawDir = Join-Path $RepoRoot "edge-gateway\data\rawlogs"
+  if (Test-Path $rawDir) {
+    $rawFile = Get-ChildItem -Path $rawDir -Filter "raw_*.json" | Sort-Object LastWriteTime -Descending | Select-Object -First 1
+    if ($rawFile) {
+      Record-Result "PASS" "Ticket-17.2-08" "raw log 생성 확인 ($($rawFile.Name))"
+    } else {
+      Record-Result "FAIL" "Ticket-17.2-08" "raw log 파일 없음"
+    }
+  } else {
+    Record-Result "FAIL" "Ticket-17.2-08" "raw log 폴더 없음"
+  }
+}
+
+# 5) 근거 라인 수집 및 체크리스트 갱신
 $allEvidence = @()
-$allEvidence += Extract-EvidenceLines -LogPath $mesSmokePs51
-if (Test-Path $mesSmokePwsh) { $allEvidence += Extract-EvidenceLines -LogPath $mesSmokePwsh }
-if (Test-Path $gwSmokePs51)  { $allEvidence += Extract-EvidenceLines -LogPath $gwSmokePs51 }
+$allEvidence += Extract-EvidenceLines -LogPath $ticketLog
 
 # 표 형태 마크다운 생성
 $auto = @()
@@ -205,5 +573,13 @@ Write-Host "Logs:"
 Write-Host " - $mesSmokePs51"
 if (Test-Path $mesSmokePwsh) { Write-Host " - $mesSmokePwsh" }
 if (Test-Path $gwSmokePs51)  { Write-Host " - $gwSmokePs51" }
+Write-Host " - $ticketLog"
+if (Test-Path $ticketErrLog) { Write-Host " - $ticketErrLog" }
+Write-Host "Results: PASS=$passCount, FAIL=$failCount"
 Write-Host "Checklist updated:"
 Write-Host " - $ChecklistPath"
+
+if ($serverProc) {
+  Write-Host "==> 자동으로 시작한 서버를 종료합니다."
+  try { Stop-Process -Id $serverProc.Id -Force -ErrorAction SilentlyContinue } catch {}
+}

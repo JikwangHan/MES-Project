@@ -93,83 +93,43 @@
 - GW-17.2-01: PLACEHOLDER (실제 장비/프로파일 확인 필요)
 - GW-17.2-02: PLACEHOLDER
 
+---
+
+## Ticket-17.2 실제 테스트 항목 (표)
+
+| TestId | Component | URL | Scenario | Auth | Input | Expected | PASS/FAIL | EvidenceLine | SourceLog |
+|---|---|---|---|---|---|---|---|---|---|
+| Ticket-17.2-01 | MES | `http://localhost:4000/health` | 서버 정상 응답 | VIEWER | 없음 | 200 OK |  |  |  |
+| Ticket-17.2-02 | MES | `POST /api/v1/equipments/:id/device-key` | 장비키 발급 | OPERATOR | equipmentId | 201 |  |  |  |
+| Ticket-17.2-03 | MES | `POST /api/v1/telemetry/events` | 정상 telemetry 업로드 | OPERATOR + 서명헤더 | payload + signature | 201 |  |  |  |
+| Ticket-17.2-04 | MES | `POST /api/v1/telemetry/events` | 서명 불일치 차단 | OPERATOR + 잘못된 signature | payload + bad signature | 401 |  |  |  |
+| Ticket-17.2-05 | MES | `POST /api/v1/telemetry/events` | nonce 재사용 차단 | OPERATOR + 같은 nonce | 2회 전송 | 2번째 401 |  |  |  |
+| Ticket-17.2-06 | MES | `POST /api/v1/telemetry/events` | equipmentCode 누락 차단 | OPERATOR + 서명헤더 | equipmentCode 없음 | 400 |  |  |  |
+| Ticket-17.2-07 | Gateway | `edge-gateway/scripts/smoke-gateway.ps1` | uplink 201 확인 | VIEWER | 자동키 옵션 | `[gateway] uplink ok 201` |  |  |  |
+| Ticket-17.2-08 | Gateway | `edge-gateway/data/rawlogs` | raw log 생성 확인 | VIEWER | smoke 실행 후 파일 확인 | raw_*.json 존재 |  |  |  |
+
 ## 자동 수집 결과
 <!-- AUTO_RESULT_START -->
-### 자동 실행 결과 (20251220_175523)
+### 자동 실행 결과 (20251221_093410)
 
 | Status | TestId | Title | SourceLog | EvidenceLine |
 |---|---|---|---|---|
-| PASS | Ticket-04 | Processes 스모크 완료 | ticket17_2-mes-smoke-ps51-20251220_175523.log | [PASS] Ticket-04 Processes 스모크 완료 |
-| PASS | Ticket-05 | Equipments 스모크 완료 | ticket17_2-mes-smoke-ps51-20251220_175523.log | [PASS] Ticket-05 Equipments 스모크 완료 |
-| PASS | Ticket-06 | Defect Types 스모크 완료 | ticket17_2-mes-smoke-ps51-20251220_175523.log | [PASS] Ticket-06 Defect Types 스모크 완료 |
-| PASS | Ticket-07 | Partners 스모크 완료 | ticket17_2-mes-smoke-ps51-20251220_175523.log | [PASS] Ticket-07 Partners 스모크 완료 |
-| PASS | Ticket-08 | Telemetry 스모크 완료 | ticket17_2-mes-smoke-ps51-20251220_175523.log | [PASS] Ticket-08 Telemetry 스모크 완료 |
-| PASS | Ticket-09 | Telemetry Auth 스모크 완료 | ticket17_2-mes-smoke-ps51-20251220_175523.log | [PASS] Ticket-09 Telemetry Auth 스모크 완료 |
-| PASS | Ticket-09.1 | rotate(1) 새 키 201 확인 | ticket17_2-mes-smoke-ps51-20251220_175523.log | [PASS] Ticket-09.1 rotate(1) 새 키 201 확인 |
-| PASS | Ticket-09.1 | rotate(2) 이전키 401 / 새키 201 확인 | ticket17_2-mes-smoke-ps51-20251220_175523.log | [PASS] Ticket-09.1 rotate(2) 이전키 401 / 새키 201 확인 |
-| PASS | Ticket-09.2 | stable-json canonical 확인(201) | ticket17_2-mes-smoke-ps51-20251220_175523.log | [PASS] Ticket-09.2 stable-json canonical 확인(201) |
-| PASS | Ticket-09.1 | revoke 후 401 확인 | ticket17_2-mes-smoke-ps51-20251220_175523.log | [PASS] Ticket-09.1 revoke 후 401 확인 |
-| PASS | Ticket-09.1 | nonce cleanup 삭제 확인 | ticket17_2-mes-smoke-ps51-20251220_175523.log | [PASS] Ticket-09.1 nonce cleanup 삭제 확인 |
-| PASS | Ticket-09.1 | Telemetry Ops 스모크 완료 | ticket17_2-mes-smoke-ps51-20251220_175523.log | [PASS] Ticket-09.1 Telemetry Ops 스모크 완료 |
-| PASS | Ticket-10 | Work Orders/Results 스모크 완료 | ticket17_2-mes-smoke-ps51-20251220_175523.log | [PASS] Ticket-10 Work Orders/Results 스모크 완료 |
-| PASS | Ticket-11 | Quality Inspections 스모크 완료 | ticket17_2-mes-smoke-ps51-20251220_175523.log | [PASS] Ticket-11 Quality Inspections 스모크 완료 |
-| PASS | Ticket-12 | Quality Check Items 스모크 완료 | ticket17_2-mes-smoke-ps51-20251220_175523.log | [PASS] Ticket-12 Quality Check Items 스모크 완료 |
-| PASS | Ticket-13 | pre: item-category upsert (409) | ticket17_2-mes-smoke-ps51-20251220_175523.log | [PASS] Ticket-13 pre: item-category upsert (409) |
-| PASS | Ticket-13 | pre: item-category list (200) | ticket17_2-mes-smoke-ps51-20251220_175523.log | [PASS] Ticket-13 pre: item-category list (200) |
-| PASS | Ticket-13 | pre: item upsert (409) | ticket17_2-mes-smoke-ps51-20251220_175523.log | [PASS] Ticket-13 pre: item upsert (409) |
-| PASS | Ticket-13 | pre: item list (200) | ticket17_2-mes-smoke-ps51-20251220_175523.log | [PASS] Ticket-13 pre: item list (200) |
-| PASS | Ticket-13 | pre: item-category upsert (409) | ticket17_2-mes-smoke-ps51-20251220_175523.log | [PASS] Ticket-13 pre: item-category upsert (409) |
-| PASS | Ticket-13 | pre: item-category list (200) | ticket17_2-mes-smoke-ps51-20251220_175523.log | [PASS] Ticket-13 pre: item-category list (200) |
-| PASS | Ticket-13 | pre: item upsert (409) | ticket17_2-mes-smoke-ps51-20251220_175523.log | [PASS] Ticket-13 pre: item upsert (409) |
-| PASS | Ticket-13 | pre: item list (200) | ticket17_2-mes-smoke-ps51-20251220_175523.log | [PASS] Ticket-13 pre: item list (200) |
-| PASS | Ticket-13A | : LOT 생성(201/409) (201) | ticket17_2-mes-smoke-ps51-20251220_175523.log | [PASS] Ticket-13A: LOT 생성(201/409) (201) |
-| PASS | Ticket-13A | : VIEWER 생성 차단(403) (403) | ticket17_2-mes-smoke-ps51-20251220_175523.log | [PASS] Ticket-13A: VIEWER 생성 차단(403) (403) |
-| PASS | Ticket-13A | : itemId 없음/타사 400 (400) | ticket17_2-mes-smoke-ps51-20251220_175523.log | [PASS] Ticket-13A: itemId 없음/타사 400 (400) |
-| PASS | Ticket-13B | : 자식 LOT 생성(201/409) (201) | ticket17_2-mes-smoke-ps51-20251220_175523.log | [PASS] Ticket-13B: 자식 LOT 생성(201/409) (201) |
-| PASS | Ticket-13 | pre: COMPANY-B LOT 생성 (201) | ticket17_2-mes-smoke-ps51-20251220_175523.log | [PASS] Ticket-13 pre: COMPANY-B LOT 생성 (201) |
-| PASS | Ticket-13B | : 타사 parentLotNo 차단 400 (400) | ticket17_2-mes-smoke-ps51-20251220_175523.log | [PASS] Ticket-13B: 타사 parentLotNo 차단 400 (400) |
-| PASS | Ticket-13B | : trace 조회(200) (200) | ticket17_2-mes-smoke-ps51-20251220_175523.log | [PASS] Ticket-13B: trace 조회(200) (200) |
-| PASS | Ticket-13 | LOT Trace 스모크 완료 | ticket17_2-mes-smoke-ps51-20251220_175523.log | [PASS] Ticket-13 LOT Trace 스모크 완료 |
-| PASS | Ticket-13.1 | WorkOrder-LOT Link 스모크 완료 | ticket17_2-mes-smoke-ps51-20251220_175523.log | [PASS] Ticket-13.1 WorkOrder-LOT Link 스모크 완료 |
-| PASS | Ticket-14 | Reports 스모크 완료 | ticket17_2-mes-smoke-ps51-20251220_175523.log | [PASS] Ticket-14 Reports 스모크 완료 |
-| PASS | Ticket-15 | Dashboard 스모크 완료 | ticket17_2-mes-smoke-ps51-20251220_175523.log | [PASS] Ticket-15 Dashboard 스모크 완료 |
-| PASS | Ticket-16 | Dashboard KPI 스모크 완료 | ticket17_2-mes-smoke-ps51-20251220_175523.log | [PASS] Ticket-16 Dashboard KPI 스모크 완료 |
-| PASS | Ticket-04 | Processes 스모크 완료 | ticket17_2-mes-smoke-pwsh-20251220_175523.log | [PASS] Ticket-04 Processes 스모크 완료 |
-| PASS | Ticket-05 | Equipments 스모크 완료 | ticket17_2-mes-smoke-pwsh-20251220_175523.log | [PASS] Ticket-05 Equipments 스모크 완료 |
-| PASS | Ticket-06 | Defect Types 스모크 완료 | ticket17_2-mes-smoke-pwsh-20251220_175523.log | [PASS] Ticket-06 Defect Types 스모크 완료 |
-| PASS | Ticket-07 | Partners 스모크 완료 | ticket17_2-mes-smoke-pwsh-20251220_175523.log | [PASS] Ticket-07 Partners 스모크 완료 |
-| PASS | Ticket-08 | Telemetry 스모크 완료 | ticket17_2-mes-smoke-pwsh-20251220_175523.log | [PASS] Ticket-08 Telemetry 스모크 완료 |
-| PASS | Ticket-09 | Telemetry Auth 스모크 완료 | ticket17_2-mes-smoke-pwsh-20251220_175523.log | [PASS] Ticket-09 Telemetry Auth 스모크 완료 |
-| PASS | Ticket-09.1 | rotate(1) 새 키 201 확인 | ticket17_2-mes-smoke-pwsh-20251220_175523.log | [PASS] Ticket-09.1 rotate(1) 새 키 201 확인 |
-| PASS | Ticket-09.1 | rotate(2) 이전키 401 / 새키 201 확인 | ticket17_2-mes-smoke-pwsh-20251220_175523.log | [PASS] Ticket-09.1 rotate(2) 이전키 401 / 새키 201 확인 |
-| PASS | Ticket-09.2 | stable-json canonical 확인(201) | ticket17_2-mes-smoke-pwsh-20251220_175523.log | [PASS] Ticket-09.2 stable-json canonical 확인(201) |
-| PASS | Ticket-09.1 | revoke 후 401 확인 | ticket17_2-mes-smoke-pwsh-20251220_175523.log | [PASS] Ticket-09.1 revoke 후 401 확인 |
-| PASS | Ticket-09.1 | nonce cleanup 삭제 확인 | ticket17_2-mes-smoke-pwsh-20251220_175523.log | [PASS] Ticket-09.1 nonce cleanup 삭제 확인 |
-| PASS | Ticket-09.1 | Telemetry Ops 스모크 완료 | ticket17_2-mes-smoke-pwsh-20251220_175523.log | [PASS] Ticket-09.1 Telemetry Ops 스모크 완료 |
-| PASS | Ticket-10 | Work Orders/Results 스모크 완료 | ticket17_2-mes-smoke-pwsh-20251220_175523.log | [PASS] Ticket-10 Work Orders/Results 스모크 완료 |
-| PASS | Ticket-11 | Quality Inspections 스모크 완료 | ticket17_2-mes-smoke-pwsh-20251220_175523.log | [PASS] Ticket-11 Quality Inspections 스모크 완료 |
-| PASS | Ticket-12 | Quality Check Items 스모크 완료 | ticket17_2-mes-smoke-pwsh-20251220_175523.log | [PASS] Ticket-12 Quality Check Items 스모크 완료 |
-| PASS | Ticket-13 | pre: item-category upsert (409) | ticket17_2-mes-smoke-pwsh-20251220_175523.log | [PASS] Ticket-13 pre: item-category upsert (409) |
-| PASS | Ticket-13 | pre: item-category list (200) | ticket17_2-mes-smoke-pwsh-20251220_175523.log | [PASS] Ticket-13 pre: item-category list (200) |
-| PASS | Ticket-13 | pre: item upsert (409) | ticket17_2-mes-smoke-pwsh-20251220_175523.log | [PASS] Ticket-13 pre: item upsert (409) |
-| PASS | Ticket-13 | pre: item list (200) | ticket17_2-mes-smoke-pwsh-20251220_175523.log | [PASS] Ticket-13 pre: item list (200) |
-| PASS | Ticket-13 | pre: item-category upsert (409) | ticket17_2-mes-smoke-pwsh-20251220_175523.log | [PASS] Ticket-13 pre: item-category upsert (409) |
-| PASS | Ticket-13 | pre: item-category list (200) | ticket17_2-mes-smoke-pwsh-20251220_175523.log | [PASS] Ticket-13 pre: item-category list (200) |
-| PASS | Ticket-13 | pre: item upsert (409) | ticket17_2-mes-smoke-pwsh-20251220_175523.log | [PASS] Ticket-13 pre: item upsert (409) |
-| PASS | Ticket-13 | pre: item list (200) | ticket17_2-mes-smoke-pwsh-20251220_175523.log | [PASS] Ticket-13 pre: item list (200) |
-| PASS | Ticket-13A | : LOT 생성(201/409) (201) | ticket17_2-mes-smoke-pwsh-20251220_175523.log | [PASS] Ticket-13A: LOT 생성(201/409) (201) |
-| PASS | Ticket-13A | : VIEWER 생성 차단(403) (403) | ticket17_2-mes-smoke-pwsh-20251220_175523.log | [PASS] Ticket-13A: VIEWER 생성 차단(403) (403) |
-| PASS | Ticket-13A | : itemId 없음/타사 400 (400) | ticket17_2-mes-smoke-pwsh-20251220_175523.log | [PASS] Ticket-13A: itemId 없음/타사 400 (400) |
-| PASS | Ticket-13B | : 자식 LOT 생성(201/409) (201) | ticket17_2-mes-smoke-pwsh-20251220_175523.log | [PASS] Ticket-13B: 자식 LOT 생성(201/409) (201) |
-| PASS | Ticket-13 | pre: COMPANY-B LOT 생성 (201) | ticket17_2-mes-smoke-pwsh-20251220_175523.log | [PASS] Ticket-13 pre: COMPANY-B LOT 생성 (201) |
-| PASS | Ticket-13B | : 타사 parentLotNo 차단 400 (400) | ticket17_2-mes-smoke-pwsh-20251220_175523.log | [PASS] Ticket-13B: 타사 parentLotNo 차단 400 (400) |
-| PASS | Ticket-13B | : trace 조회(200) (200) | ticket17_2-mes-smoke-pwsh-20251220_175523.log | [PASS] Ticket-13B: trace 조회(200) (200) |
-| PASS | Ticket-13 | LOT Trace 스모크 완료 | ticket17_2-mes-smoke-pwsh-20251220_175523.log | [PASS] Ticket-13 LOT Trace 스모크 완료 |
-| PASS | Ticket-13.1 | WorkOrder-LOT Link 스모크 완료 | ticket17_2-mes-smoke-pwsh-20251220_175523.log | [PASS] Ticket-13.1 WorkOrder-LOT Link 스모크 완료 |
-| PASS | Ticket-14 | Reports 스모크 완료 | ticket17_2-mes-smoke-pwsh-20251220_175523.log | [PASS] Ticket-14 Reports 스모크 완료 |
-| PASS | Ticket-15 | Dashboard 스모크 완료 | ticket17_2-mes-smoke-pwsh-20251220_175523.log | [PASS] Ticket-15 Dashboard 스모크 완료 |
-| PASS | Ticket-16 | Dashboard KPI 스모크 완료 | ticket17_2-mes-smoke-pwsh-20251220_175523.log | [PASS] Ticket-16 Dashboard KPI 스모크 완료 |
+| PASS | Ticket-17.2-01 | health 200 확인 | ticket17_2-cases-20251221_093410.log | [PASS] Ticket-17.2-01 health 200 확인 |
+| PASS | Ticket-17.2-02 | device-key 발급 성공 | ticket17_2-cases-20251221_093410.log | [PASS] Ticket-17.2-02 device-key 발급 성공 |
+| PASS | Ticket-17.2-03 | telemetry 정상 업로드 201 | ticket17_2-cases-20251221_093410.log | [PASS] Ticket-17.2-03 telemetry 정상 업로드 201 |
+| PASS | Ticket-17.2-04 | 서명 불일치 거부 401 | ticket17_2-cases-20251221_093410.log | [PASS] Ticket-17.2-04 서명 불일치 거부 401 |
+| PASS | Ticket-17.2-05 | nonce 재사용 거부 401 | ticket17_2-cases-20251221_093410.log | [PASS] Ticket-17.2-05 nonce 재사용 거부 401 |
+| PASS | Ticket-17.2-06 | equipmentCode 누락 400 | ticket17_2-cases-20251221_093410.log | [PASS] Ticket-17.2-06 equipmentCode 누락 400 |
+| PASS | Ticket-17.2-07 | gateway uplink 201 확인 | ticket17_2-cases-20251221_093410.log | [PASS] Ticket-17.2-07 gateway uplink 201 확인 |
+| PASS | Ticket-17.2-08 | raw log 생성 확인 (raw_2025-12-21T00-34-25-892Z.json) | ticket17_2-cases-20251221_093410.log | [PASS] Ticket-17.2-08 raw log 생성 확인 (raw_2025-12-21T00-34-25-892Z.json) |
 <!-- AUTO_RESULT_END -->
+
+
+
+
+
+
+
 
 
 
