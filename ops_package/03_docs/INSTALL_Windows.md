@@ -38,6 +38,11 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\ops_package\02_scripts
 
 서비스가 켜진 상태에서 Daily(P0)를 실행합니다.
 
+health 확인(환경별 포트는 `MES_BASE_URL` 기준):
+```
+curl.exe -i "$env:MES_BASE_URL/health" -H "x-company-id: $env:MES_COMPANY_ID" -H "x-role: VIEWER"
+```
+
 ```
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\ops\run_ticket_17_2.ps1 `
   -RunGatewaySmoke -GatewayAutoKey -GatewayEquipmentCode $env:T17_GATEWAY_EQUIPMENT_CODE

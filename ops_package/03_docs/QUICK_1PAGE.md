@@ -39,3 +39,11 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\ops_package\02_scripts
 ```
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\ops_package\02_scripts\status_windows_service.ps1
 ```
+
+## (선택) 운영 하드닝 요약
+`ops_package/03_docs/HARDENING_1PAGE.md`
+
+자가점검:
+```
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\ops_package\02_scripts\hardening_selfcheck.ps1
+```

@@ -104,7 +104,7 @@ pwsh -NoProfile -ExecutionPolicy Bypass -File .\tools\release-gate.ps1 -ApplyTag
 
 | 증상 | 원인 | 확인 방법 | 해결 절차 | 재검증 |
 |---|---|---|---|---|
-| 서버 미기동 | 서버가 꺼져 있음 | `http://localhost:4000/health` 200 여부 | 서버를 먼저 실행하거나 `-AutoStartServer` 사용 | Daily 명령 재실행 |
+| 서버 미기동 | 서버가 꺼져 있음 | `$env:MES_BASE_URL/health` 200 여부 | 서버를 먼저 실행하거나 `-AutoStartServer` 사용 | Daily 명령 재실행 |
 | MES_BASE_URL 오류 | 주소/포트 오타 | `.env` 또는 환경변수 확인 | `MES_BASE_URL` 올바르게 수정 | Daily 명령 재실행 |
 | 서명/nonce 실패 | 키 불일치, 중복 nonce | ticket17_2-errors 로그 확인 | 장비키 재발급 또는 nonce 재시도 | Pre-release 재실행 |
 | equipmentCode 누락 | payload에 누락 | 체크리스트/로그 확인 | `T17_EQUIPMENT_CODE` 확인 후 재실행 | Daily 명령 재실행 |
@@ -125,3 +125,45 @@ pwsh -NoProfile -ExecutionPolicy Bypass -File .\tools\release-gate.ps1 -ApplyTag
 
 - 환경 프로파일 안내: `docs/ops/Ticket-17.2_Env_Profile.md`
 - 체크리스트: `docs/testing/Ticket-17.2_Test_Checklist.md`
+
+---
+
+## Annex A. 운영 서버 하드닝 체크리스트 v0.1
+
+요약본: `ops_package/03_docs/HARDENING_1PAGE.md`
+
+### A) 방화벽 / 네트워크
+- 인바운드 허용 포트는 **운영 포트만 허용**, 나머지는 차단
+- 관리용 접근은 **사내 관리망/VPN**에서만 허용
+- health 엔드포인트는 **외부 공개 여부**를 사전에 결정
+- Windows 예시:
+  - `netsh advfirewall firewall show rule name=all`
+  - `Get-NetFirewallRule | Select-Object -First 5`
+- Linux 예시:
+  - `sudo ufw status`
+  - `sudo firewall-cmd --list-all`
+
+### B) 서비스 계정 / 권한 (NSSM)
+- 기본 정책: 가능하면 **제한 계정** 사용, LocalSystem은 최소화
+- 최소 권한 원칙:
+  - 앱 폴더: 읽기/실행
+  - logs 폴더: 쓰기
+  - ops_package/05_evidence: 쓰기(증빙 생성자만)
+  - .env: 읽기(제한)
+- 점검 방법(Windows):
+  - 서비스 속성 → 로그온 계정 확인
+  - `Get-Service MES-WebServer`
+
+### C) 로그 / 증빙 / 환경파일 권한
+- `logs/windows_service`는 관리자/서비스 계정만 접근
+- `ops_package/05_evidence`는 제출 담당자만 접근
+- `.env`는 **읽기 제한** 및 **커밋 금지** 재확인
+- 증빙 ZIP에 `.env`가 포함되지 않도록 확인
+
+### D) 포트 / 프로세스 정책
+- URL은 항상 `MES_BASE_URL` 기준으로 단일 소스화
+- 포트 충돌 시 진단:
+  - Windows: `Get-NetTCPConnection -LocalPort <port>`
+  - Linux: `ss -lntp | grep <port>`
+- 서비스 복구 옵션(재시작 정책) 확인
+- Pre-release 점검 시 “방화벽/권한/포트” 항목 추가 확인

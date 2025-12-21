@@ -104,3 +104,45 @@ pwsh -NoProfile -ExecutionPolicy Bypass -File .\tools\release-gate.ps1 -ApplyTag
 
 - Windows 운영 표준은 **NSSM 단일 방식**으로 고정합니다.
 - 설치/운영 절차: `ops_package/03_docs/INSTALL_Windows.md`
+
+---
+
+## Annex A. 운영 서버 하드닝 체크리스트 v0.1
+
+요약본: `ops_package/03_docs/HARDENING_1PAGE.md`
+
+### A) 방화벽 / 네트워크
+- 인바운드 허용 포트는 **운영 포트만 허용**, 나머지는 차단
+- 관리용 접근은 **사내 관리망/VPN**에서만 허용
+- health 엔드포인트는 **외부 공개 여부**를 사전에 결정
+- Windows 예시:
+  - `netsh advfirewall firewall show rule name=all`
+  - `Get-NetFirewallRule | Select-Object -First 5`
+- Linux 예시:
+  - `sudo ufw status`
+  - `sudo firewall-cmd --list-all`
+
+### B) 서비스 계정 / 권한 (NSSM)
+- 기본 정책: 가능하면 **제한 계정** 사용, LocalSystem은 최소화
+- 최소 권한 원칙:
+  - 앱 폴더: 읽기/실행
+  - logs 폴더: 쓰기
+  - ops_package/05_evidence: 쓰기(증빙 생성자만)
+  - .env: 읽기(제한)
+- 점검 방법(Windows):
+  - 서비스 속성 → 로그온 계정 확인
+  - `Get-Service MES-WebServer`
+
+### C) 로그 / 증빙 / 환경파일 권한
+- `logs/windows_service`는 관리자/서비스 계정만 접근
+- `ops_package/05_evidence`는 제출 담당자만 접근
+- `.env`는 **읽기 제한** 및 **커밋 금지** 재확인
+- 증빙 ZIP에 `.env`가 포함되지 않도록 확인
+
+### D) 포트 / 프로세스 정책
+- URL은 항상 `MES_BASE_URL` 기준으로 단일 소스화
+- 포트 충돌 시 진단:
+  - Windows: `Get-NetTCPConnection -LocalPort <port>`
+  - Linux: `ss -lntp | grep <port>`
+- 서비스 복구 옵션(재시작 정책) 확인
+- Pre-release 점검 시 “방화벽/권한/포트” 항목 추가 확인
