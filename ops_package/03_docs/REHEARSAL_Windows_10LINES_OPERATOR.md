@@ -1,7 +1,7 @@
-# Windows 리허설 10줄 복붙 명령 세트
+# Windows 리허설 10줄(운영자용, 조건 분기 포함)
 
-아래 10줄은 **초보자용(단순 흐름)** 입니다.
-운영자/재실행은 `ops_package/03_docs/REHEARSAL_Windows_10LINES_OPERATOR.md`를 사용하세요.
+이 문서는 **운영자/재리허설/재점검** 용도입니다.  
+이미 설치된 서비스가 있으면 **install을 건너뛰고 status/restart로 분기**합니다.
 
 ---
 
@@ -9,19 +9,21 @@
 
 - 레포 경로 예시: `C:\MES\repo`
 - NSSM 경로 예시: `C:\tools\nssm\nssm.exe`
-- `.env`는 반드시 **운영 서버 값으로 수정**
+- 서비스명: `MES-WebServer`
+- `.env`는 **존재하면 덮어쓰지 않음**
 - 비밀값(키/토큰)은 **화면 공유 금지**
 
 ---
 
-## 10줄 복붙 명령 세트
+## 운영자용 10줄(조건 분기 포함)
 
 ```powershell
 cd /d C:\MES\repo
-copy .\ops_package\04_templates\env\.env.rehearsal.windows.example .\.env
+if (!(Test-Path .\.env)) { copy .\ops_package\04_templates\env\.env.rehearsal.windows.example .\.env }
 notepad .\.env
-powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\ops_package\02_scripts\install_windows_service.ps1 -NssmPath "C:\tools\nssm\nssm.exe" -ServiceName "MES-WebServer"
-powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\ops_package\02_scripts\status_windows_service.ps1
+$svc="MES-WebServer"; $nssm="C:\tools\nssm\nssm.exe"; $s=Get-Service -Name $svc -ErrorAction SilentlyContinue
+if (-not $s) { powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\ops_package\02_scripts\install_windows_service.ps1 -NssmPath $nssm -ServiceName $svc } else { powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\ops_package\02_scripts\status_windows_service.ps1 }
+if ((Get-Service -Name $svc).Status -ne "Running") { powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\ops_package\02_scripts\restart_windows_service.ps1 }
 powershell.exe -NoProfile -Command "iwr ($env:MES_BASE_URL + '/health') -UseBasicParsing | Select-Object -Expand StatusCode"
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\ops_package\02_scripts\prepare_capture_session.ps1
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\ops\run_ticket_17_2.ps1

@@ -37,7 +37,8 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\ops_package\02_scripts
 ```
 
 요약 실행(10줄 복붙):
-- `ops_package/03_docs/REHEARSAL_Windows_10LINES.md`
+- 초보자용: `ops_package/03_docs/REHEARSAL_Windows_10LINES.md`
+- 운영자용(조건 분기): `ops_package/03_docs/REHEARSAL_Windows_10LINES_OPERATOR.md`
 
 필수 키 확인:
 - `MES_BASE_URL`
