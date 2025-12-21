@@ -114,3 +114,4 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\ops_package\02_scripts
 - .env 최소값 가이드: `ops_package/03_docs/ENV_MINIMUM_GUIDE_Windows_Rehearsal.md`
 - 10줄 복붙(초보자용): `ops_package/03_docs/REHEARSAL_Windows_10LINES.md`
 - 10줄 복붙(운영자용/조건 분기): `ops_package/03_docs/REHEARSAL_Windows_10LINES_OPERATOR.md`
+- 최종 5줄(운영자용): `ops_package/03_docs/REHEARSAL_Windows_5LINES_OPERATOR.md`
