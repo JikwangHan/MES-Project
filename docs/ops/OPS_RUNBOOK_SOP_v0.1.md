@@ -208,3 +208,5 @@ pwsh -NoProfile -ExecutionPolicy Bypass -File .\tools\release-gate.ps1 -ApplyTag
 - `check_capture_sanity.ps1` PASS 후
 - `check_handover_bundle_contents.ps1` PASS 확인
 최종 5줄 가이드: `ops_package/03_docs/REHEARSAL_Windows_5LINES_OPERATOR.md`
+최종 판정:
+- `judge_handover_ready.ps1`에서 [PASS] 확인

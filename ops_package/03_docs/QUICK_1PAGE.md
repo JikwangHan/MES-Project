@@ -82,3 +82,8 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\ops_package\02_scripts
 ```
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\ops_package\02_scripts\check_handover_bundle_contents.ps1
 ```
+
+## 최종 제출 판정(1줄)
+```
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\ops_package\02_scripts\judge_handover_ready.ps1
+```

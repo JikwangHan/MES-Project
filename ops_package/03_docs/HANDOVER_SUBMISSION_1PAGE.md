@@ -54,3 +54,5 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\ops_package\02_scripts
 - [ ] evidence ZIP 안에 `.env`가 없는지 확인
 - [ ] 번들 ZIP 포함 확인:
   - `check_handover_bundle_contents.ps1` 실행 후 PASS 확인
+- [ ] 최종 판정:
+  - `judge_handover_ready.ps1` 실행 후 [PASS] 확인

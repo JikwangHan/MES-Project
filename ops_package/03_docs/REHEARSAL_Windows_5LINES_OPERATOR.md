@@ -24,6 +24,7 @@ if (!(Test-Path .\.env)) { Copy-Item .\ops_package\04_templates\env\.env.rehears
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\ops_package\02_scripts\prepare_capture_session.ps1
 powershell.exe -NoProfile -ExecutionPolicy Bypass -Command "$svc='MES-WebServer'; $nssm='C:\tools\nssm\nssm.exe'; if (Get-Service -Name $svc -ErrorAction SilentlyContinue) { & .\ops_package\02_scripts\restart_windows_service.ps1 } else { & .\ops_package\02_scripts\install_windows_service.ps1 -NssmPath $nssm -ServiceName $svc }; Start-Sleep -Seconds 2; & .\ops_package\02_scripts\status_windows_service.ps1; & .\scripts\ops\run_ticket_17_2.ps1; & .\ops_package\02_scripts\hardening_selfcheck.ps1; & .\ops_package\02_scripts\build_handover_bundle.ps1 -Version 'v0.1'; $capRoot='.\ops_package\05_evidence\captures'; $sid=(Get-ChildItem $capRoot -Directory | Sort-Object Name | Select-Object -Last 1).Name; Start-Process explorer.exe (Join-Path $capRoot $sid); Write-Host '이제 캡처 #1~#6을 위 폴더에 저장한 뒤 Enter'; Read-Host"
 powershell.exe -NoProfile -ExecutionPolicy Bypass -Command "$capRoot='.\ops_package\05_evidence\captures'; $sid=(Get-ChildItem $capRoot -Directory | Sort-Object Name | Select-Object -Last 1).Name; & .\ops_package\02_scripts\check_capture_sanity.ps1 -SessionId $sid; & .\ops_package\02_scripts\check_handover_bundle_contents.ps1 -SessionId $sid"
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\ops_package\02_scripts\judge_handover_ready.ps1
 ```
 
 ---
