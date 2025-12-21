@@ -97,3 +97,10 @@ pwsh -NoProfile -ExecutionPolicy Bypass -File .\tools\release-gate.ps1 -ApplyTag
 - 로그 파일명은 스탬프가 포함되어 자동 생성됩니다.
 - 체크리스트 자동 섹션은 **최신 실행 결과로 갱신**됩니다.
 - 배포 전 점검 후 `RELEASE_NOTES.md`에 요약을 남깁니다.
+
+---
+
+## 8) Windows 서비스 표준
+
+- Windows 운영 표준은 **NSSM 단일 방식**으로 고정합니다.
+- 설치/운영 절차: `ops_package/03_docs/INSTALL_Windows.md`

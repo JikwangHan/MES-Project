@@ -64,3 +64,18 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\ops_package\02_scripts
 ```
 
 생성 위치: `ops_package/06_dist/OPS_Package_v0.1_YYYYMMDD_HHMM.zip`
+
+---
+
+## (선택) Windows 서비스 설치 QuickStart
+
+```
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\ops_package\02_scripts\install_windows_service.ps1 `
+  -NssmPath "C:\tools\nssm\nssm.exe" -ServiceName "MES-WebServer"
+```
+
+서비스 상태 확인:
+
+```
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\ops_package\02_scripts\status_windows_service.ps1
+```

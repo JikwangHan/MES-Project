@@ -14,6 +14,9 @@ param(
 Set-StrictMode -Version Latest
 $ErrorActionPreference = "Stop"
 
+$OutputEncoding = New-Object System.Text.UTF8Encoding($false)
+[Console]::OutputEncoding = New-Object System.Text.UTF8Encoding($false)
+
 $RepoRoot = (Resolve-Path (Join-Path $PSScriptRoot "..\..")).Path
 $LogsDir = Join-Path $RepoRoot "logs"
 $Checklist = Join-Path $RepoRoot "docs\testing\Ticket-17.2_Test_Checklist.md"

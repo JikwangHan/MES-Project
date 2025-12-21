@@ -30,3 +30,12 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\ops_package\02_scripts
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\ops_package\02_scripts\build_ops_package.ps1 -Version "v0.1"
 ```
 생성: `ops_package/06_dist/OPS_Package_v0.1_*.zip`
+
+## (선택) Windows 서비스 운영
+```
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\ops_package\02_scripts\install_windows_service.ps1 `
+  -NssmPath "C:\tools\nssm\nssm.exe" -ServiceName "MES-WebServer"
+```
+```
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\ops_package\02_scripts\status_windows_service.ps1
+```
