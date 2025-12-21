@@ -27,6 +27,13 @@ $ErrorActionPreference = "Stop"
 $RepoRoot = (Resolve-Path (Join-Path $PSScriptRoot "..\..")).Path
 $LogsDir  = Join-Path $RepoRoot "logs"
 
+# .env 로더를 먼저 실행합니다. (이미 설정된 환경변수는 덮어쓰지 않음)
+$dotenvLoader = Join-Path $RepoRoot "scripts\ops\load_dotenv.ps1"
+$dotenvPath = Join-Path $RepoRoot ".env"
+if (Test-Path $dotenvLoader) {
+  . $dotenvLoader -Path $dotenvPath
+}
+
 # Ticket-17.2 체크리스트 문서 경로(없으면 새로 만듭니다)
 $ChecklistPath = Join-Path $RepoRoot "docs\testing\Ticket-17.2_Test_Checklist.md"
 
@@ -38,6 +45,35 @@ $Role = "OPERATOR"
 $EquipmentCode = $env:T17_EQUIPMENT_CODE
 if (-not $EquipmentCode) { $EquipmentCode = "T17-2-EQ-001" }
 $CanonicalMode = "stable-json"
+
+function Get-EnvSwitch([string]$Name) {
+  $v = [Environment]::GetEnvironmentVariable($Name, "Process")
+  if (-not $v) { return $false }
+  $t = $v.ToString().Trim().ToLower()
+  return ($t -eq "1" -or $t -eq "true" -or $t -eq "yes" -or $t -eq "y" -or $t -eq "on")
+}
+
+# 환경변수 기반 옵션 (명령행 옵션이 없을 때만 적용)
+if (-not $PSBoundParameters.ContainsKey('RunGatewaySmoke')) {
+  if (Get-EnvSwitch "T17_RUN_GATEWAY_SMOKE") { $RunGatewaySmoke = $true }
+}
+if (-not $PSBoundParameters.ContainsKey('GatewayAutoKey')) {
+  if (Get-EnvSwitch "T17_GATEWAY_AUTO_KEY") { $GatewayAutoKey = $true }
+}
+if (-not $PSBoundParameters.ContainsKey('IncludeP1')) {
+  if (Get-EnvSwitch "T17_INCLUDE_P1") { $IncludeP1 = $true }
+}
+if (-not $PSBoundParameters.ContainsKey('AutoStartServer')) {
+  if (Get-EnvSwitch "T17_AUTO_START_SERVER") { $AutoStartServer = $true }
+}
+if (-not $PSBoundParameters.ContainsKey('DevMode')) {
+  if (Get-EnvSwitch "T17_DEV_MODE") { $DevMode = $true }
+}
+
+$GatewayEquipmentCodeResolved = $GatewayEquipmentCode
+if (-not $PSBoundParameters.ContainsKey('GatewayEquipmentCode') -and $env:T17_GATEWAY_EQUIPMENT_CODE) {
+  $GatewayEquipmentCodeResolved = $env:T17_GATEWAY_EQUIPMENT_CODE
+}
 
 function Ensure-Dir([string]$Path) {
   if (-not (Test-Path $Path)) { New-Item -ItemType Directory -Path $Path | Out-Null }
@@ -430,7 +466,7 @@ if ($RunGatewaySmoke) {
   $oldEqCode  = $env:GATEWAY_PROFILE_EQUIPMENT_CODE
 
   if ($GatewayAutoKey) { $env:SMOKE_GATEWAY_AUTO_KEY = "1" } else { $env:SMOKE_GATEWAY_AUTO_KEY = $null }
-  $env:GATEWAY_PROFILE_EQUIPMENT_CODE = $GatewayEquipmentCode
+  $env:GATEWAY_PROFILE_EQUIPMENT_CODE = $GatewayEquipmentCodeResolved
 
   try {
     Run-Capture -Label "Gateway smoke (PS 5.1)" `
