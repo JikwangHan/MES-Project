@@ -199,3 +199,5 @@ pwsh -NoProfile -ExecutionPolicy Bypass -File .\tools\release-gate.ps1 -ApplyTag
    - `hardening_selfcheck.ps1`에서 **필수 항목 PASS**
 5) 제출 체크리스트 충족  
    - `ops_package/03_docs/HANDOVER_SUBMISSION_1PAGE.md` 기준 충족
+
+리허설 문서: `ops_package/03_docs/REHEARSAL_Windows_NSSM_SELFCHECK_PASS.md`
