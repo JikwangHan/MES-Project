@@ -71,3 +71,13 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\ops_package\02_scripts
 `ops_package/03_docs/REHEARSAL_Windows_10LINES.md` (초보자용)
 `ops_package/03_docs/REHEARSAL_Windows_10LINES_OPERATOR.md` (운영자용/조건 분기)
 캡처 sanity 확인: `ops_package/02_scripts/check_capture_sanity.ps1`
+
+## 제출 직전 2단계 검증
+1) 캡처 6/6 확인:
+```
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\ops_package\02_scripts\check_capture_sanity.ps1 -SessionId <세션ID>
+```
+2) 번들 ZIP 6/6 확인:
+```
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\ops_package\02_scripts\check_handover_bundle_contents.ps1
+```

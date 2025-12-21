@@ -52,3 +52,5 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\ops_package\02_scripts
 - [ ] ZIP 파일 생성 시간 확인(최신인지)
 - [ ] Ticket-17.2 자동 섹션이 최신 실행으로 갱신됐는지 확인
 - [ ] evidence ZIP 안에 `.env`가 없는지 확인
+- [ ] 번들 ZIP 포함 확인:
+  - `check_handover_bundle_contents.ps1` 실행 후 PASS 확인
