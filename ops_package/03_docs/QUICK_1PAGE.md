@@ -88,3 +88,4 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\ops_package\02_scripts
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\ops_package\02_scripts\judge_handover_ready.ps1
 ```
 운영자용 최종 5줄은 마지막 줄에 판정기까지 포함됩니다.
+운영자용 5줄 4번째 줄에 `LATEST_BUNDLE=...`가 출력되면 그 파일이 제출 대상입니다.
