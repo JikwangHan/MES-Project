@@ -14,7 +14,10 @@
 param(
   [switch]$RunGatewaySmoke,
   [switch]$GatewayAutoKey,
-  [string]$GatewayEquipmentCode = "EQ-GW-001"
+  [string]$GatewayEquipmentCode = "EQ-GW-001",
+  [switch]$AutoStartServer,
+  [switch]$DevMode,
+  [switch]$IncludeP1
 )
 
 Set-StrictMode -Version Latest
@@ -334,6 +337,20 @@ function Send-SignedTelemetry {
   return $resp
 }
 
+function Send-TelemetryCustom {
+  param(
+    [hashtable]$Headers,
+    [string]$BodyRaw
+  )
+  $tmpBody = New-TemporaryFile
+  $utf8NoBom = New-Object System.Text.UTF8Encoding($false)
+  [IO.File]::WriteAllText($tmpBody, $BodyRaw, $utf8NoBom)
+  $resp = Invoke-CurlJson "POST" "$BaseUrl/api/v1/telemetry/events" $Headers $null $tmpBody
+  Remove-Item $tmpBody -Force -ErrorAction SilentlyContinue
+  $resp.BodyRaw = $BodyRaw
+  return $resp
+}
+
 function Test-Health {
   try {
     $headers = @{ "x-company-id" = $CompanyId; "x-role" = "VIEWER" }
@@ -349,8 +366,16 @@ function Start-ServerIfNeeded {
     return $null
   }
 
+  if (-not $AutoStartServer) {
+    throw "서버가 실행 중이 아닙니다. -AutoStartServer 옵션을 사용하세요."
+  }
+
   if (-not $env:MES_MASTER_KEY) {
-    $env:MES_MASTER_KEY = "dev-master-key"
+    if ($DevMode) {
+      $env:MES_MASTER_KEY = "dev-master-key"
+    } else {
+      throw "MES_MASTER_KEY가 없습니다. 운영 모드에서는 설정이 필요합니다."
+    }
   }
 
   Write-Host "==> 서버가 실행 중이 아닙니다. node src/server.js로 자동 시작합니다."
@@ -544,6 +569,80 @@ if ($RunGatewaySmoke) {
   } else {
     Record-Result "FAIL" "Ticket-17.2-08" "raw log 폴더 없음"
   }
+}
+
+# 4-9) ~ 4-12) P1 확장 테스트 (선택)
+if (-not $IncludeP1) {
+  Write-Host "==> P1 테스트는 SKIP 됩니다. (필요 시 -IncludeP1 옵션 사용)"
+}
+
+if ($IncludeP1 -and $ek) {
+  $tsP1 = [int][Math]::Floor((Get-Date).ToUniversalTime().Subtract([datetime]'1970-01-01').TotalSeconds)
+  $nonceP1 = [guid]::NewGuid().ToString("N")
+  $payloadP1 = @{
+    equipmentCode = $ek.EquipmentCode
+    eventType = "TELEMETRY"
+    payload = @{ state = "RUN"; speed = 1 }
+  }
+  $bodyRawP1 = ConvertTo-StableJson $payloadP1
+
+  # 4-9) 잘못된 deviceKeyId
+  $headersBadKey = @{
+    "x-company-id" = $CompanyId
+    "x-role" = $Role
+    "x-device-key" = [guid]::NewGuid().ToString()
+    "x-ts" = "$tsP1"
+    "x-nonce" = $nonceP1
+    "x-signature" = "deadbeef"
+    "x-canonical" = $CanonicalMode
+    "Content-Type" = "application/json"
+  }
+  $badKey = Send-TelemetryCustom -Headers $headersBadKey -BodyRaw $bodyRawP1
+  if ($badKey.Status -eq "401") {
+    Record-Result "PASS" "Ticket-17.2-09" "잘못된 deviceKeyId 거부 401"
+  } else {
+    Record-Result "FAIL" "Ticket-17.2-09" "잘못된 deviceKeyId 거부 실패 (status=$($badKey.Status))"
+  }
+
+  # 4-10) 잘못된 ts 형식
+  $headersBadTs = $headersBadKey.Clone()
+  $headersBadTs["x-device-key"] = $ek.DeviceKeyId
+  $headersBadTs["x-ts"] = "abc"
+  $badTs = Send-TelemetryCustom -Headers $headersBadTs -BodyRaw $bodyRawP1
+  if ($badTs.Status -eq "401") {
+    Record-Result "PASS" "Ticket-17.2-10" "잘못된 ts 거부 401"
+  } else {
+    Record-Result "FAIL" "Ticket-17.2-10" "잘못된 ts 거부 실패 (status=$($badTs.Status))"
+  }
+
+  # 4-11) 만료 ts
+  $headersExpired = $headersBadKey.Clone()
+  $headersExpired["x-device-key"] = $ek.DeviceKeyId
+  $headersExpired["x-ts"] = "$($tsP1 - 1000)"
+  $expired = Send-TelemetryCustom -Headers $headersExpired -BodyRaw $bodyRawP1
+  if ($expired.Status -eq "401") {
+    Record-Result "PASS" "Ticket-17.2-11" "만료 ts 거부 401"
+  } else {
+    Record-Result "FAIL" "Ticket-17.2-11" "만료 ts 거부 실패 (status=$($expired.Status))"
+  }
+
+  # 4-12) 서명 헤더 누락
+  $headersMissing = @{
+    "x-company-id" = $CompanyId
+    "x-role" = $Role
+    "Content-Type" = "application/json"
+  }
+  $missingSig = Send-TelemetryCustom -Headers $headersMissing -BodyRaw $bodyRawP1
+  if ($missingSig.Status -eq "401") {
+    Record-Result "PASS" "Ticket-17.2-12" "서명 헤더 누락 거부 401"
+  } else {
+    Record-Result "FAIL" "Ticket-17.2-12" "서명 헤더 누락 거부 실패 (status=$($missingSig.Status))"
+  }
+} elseif ($IncludeP1 -and -not $ek) {
+  Record-Result "FAIL" "Ticket-17.2-09" "P1 선행 조건 실패 (device-key 없음)"
+  Record-Result "FAIL" "Ticket-17.2-10" "P1 선행 조건 실패 (device-key 없음)"
+  Record-Result "FAIL" "Ticket-17.2-11" "P1 선행 조건 실패 (device-key 없음)"
+  Record-Result "FAIL" "Ticket-17.2-12" "P1 선행 조건 실패 (device-key 없음)"
 }
 
 # 5) 근거 라인 수집 및 체크리스트 갱신
