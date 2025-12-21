@@ -1,0 +1,14 @@
+[Unit]
+Description=MES Server
+After=network.target
+
+[Service]
+Type=simple
+WorkingDirectory=/opt/mes-project
+ExecStart=/usr/bin/node /opt/mes-project/src/server.js
+Restart=always
+RestartSec=3
+EnvironmentFile=/opt/mes-project/.env
+
+[Install]
+WantedBy=multi-user.target

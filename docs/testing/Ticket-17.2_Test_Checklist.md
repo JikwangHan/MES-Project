@@ -126,23 +126,20 @@ P1 항목은 `-IncludeP1` 옵션을 줬을 때만 실행됩니다.
 
 ## 자동 수집 결과
 <!-- AUTO_RESULT_START -->
-### 자동 실행 결과 (20251221_101425)
+### 자동 실행 결과 (20251221_105034)
 
 | Status | TestId | Title | SourceLog | EvidenceLine |
 |---|---|---|---|---|
-| PASS | Ticket-17.2-01 | health 200 확인 | ticket17_2-cases-20251221_101425.log | [PASS] Ticket-17.2-01 health 200 확인 |
-| PASS | Ticket-17.2-02 | device-key 발급 성공 | ticket17_2-cases-20251221_101425.log | [PASS] Ticket-17.2-02 device-key 발급 성공 |
-| PASS | Ticket-17.2-03 | telemetry 정상 업로드 201 | ticket17_2-cases-20251221_101425.log | [PASS] Ticket-17.2-03 telemetry 정상 업로드 201 |
-| PASS | Ticket-17.2-04 | 서명 불일치 거부 401 | ticket17_2-cases-20251221_101425.log | [PASS] Ticket-17.2-04 서명 불일치 거부 401 |
-| PASS | Ticket-17.2-05 | nonce 재사용 거부 401 | ticket17_2-cases-20251221_101425.log | [PASS] Ticket-17.2-05 nonce 재사용 거부 401 |
-| PASS | Ticket-17.2-06 | equipmentCode 누락 400 | ticket17_2-cases-20251221_101425.log | [PASS] Ticket-17.2-06 equipmentCode 누락 400 |
-| PASS | Ticket-17.2-07 | gateway uplink 201 확인 | ticket17_2-cases-20251221_101425.log | [PASS] Ticket-17.2-07 gateway uplink 201 확인 |
-| PASS | Ticket-17.2-08 | raw log 생성 확인 (raw_2025-12-21T01-14-47-796Z.json) | ticket17_2-cases-20251221_101425.log | [PASS] Ticket-17.2-08 raw log 생성 확인 (raw_2025-12-21T01-14-47-796Z.json) |
-| PASS | Ticket-17.2-09 | 잘못된 deviceKeyId 거부 401 | ticket17_2-cases-20251221_101425.log | [PASS] Ticket-17.2-09 잘못된 deviceKeyId 거부 401 |
-| PASS | Ticket-17.2-10 | 잘못된 ts 거부 401 | ticket17_2-cases-20251221_101425.log | [PASS] Ticket-17.2-10 잘못된 ts 거부 401 |
-| PASS | Ticket-17.2-11 | 만료 ts 거부 401 | ticket17_2-cases-20251221_101425.log | [PASS] Ticket-17.2-11 만료 ts 거부 401 |
-| PASS | Ticket-17.2-12 | 서명 헤더 누락 거부 401 | ticket17_2-cases-20251221_101425.log | [PASS] Ticket-17.2-12 서명 헤더 누락 거부 401 |
+| PASS | Ticket-17.2-01 | health 200 확인 | ticket17_2-cases-20251221_105034.log | [PASS] Ticket-17.2-01 health 200 확인 |
+| PASS | Ticket-17.2-02 | device-key 발급 성공 | ticket17_2-cases-20251221_105034.log | [PASS] Ticket-17.2-02 device-key 발급 성공 |
+| PASS | Ticket-17.2-03 | telemetry 정상 업로드 201 | ticket17_2-cases-20251221_105034.log | [PASS] Ticket-17.2-03 telemetry 정상 업로드 201 |
+| PASS | Ticket-17.2-04 | 서명 불일치 거부 401 | ticket17_2-cases-20251221_105034.log | [PASS] Ticket-17.2-04 서명 불일치 거부 401 |
+| PASS | Ticket-17.2-05 | nonce 재사용 거부 401 | ticket17_2-cases-20251221_105034.log | [PASS] Ticket-17.2-05 nonce 재사용 거부 401 |
+| PASS | Ticket-17.2-06 | equipmentCode 누락 400 | ticket17_2-cases-20251221_105034.log | [PASS] Ticket-17.2-06 equipmentCode 누락 400 |
+| PASS | Ticket-17.2-07 | gateway uplink 201 확인 | ticket17_2-cases-20251221_105034.log | [PASS] Ticket-17.2-07 gateway uplink 201 확인 |
+| PASS | Ticket-17.2-08 | raw log 생성 확인 (raw_2025-12-21T01-50-56-660Z.json) | ticket17_2-cases-20251221_105034.log | [PASS] Ticket-17.2-08 raw log 생성 확인 (raw_2025-12-21T01-50-56-660Z.json) |
 <!-- AUTO_RESULT_END -->
+
 
 
 
