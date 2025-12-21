@@ -40,6 +40,11 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\ops_package\02_scripts
 - evidence ZIP: `ops_package\05_evidence\evidence_*.zip`
 - HANDOVER_BUNDLE ZIP: `ops_package\06_dist\HANDOVER_BUNDLE_*.zip`
 
+## (선택) 캡처 sanity 확인
+```
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\ops_package\02_scripts\check_capture_sanity.ps1 -SessionId <세션ID>
+```
+
 ---
 
 ## 실패 시 가장 흔한 3가지 원인과 1줄 조치

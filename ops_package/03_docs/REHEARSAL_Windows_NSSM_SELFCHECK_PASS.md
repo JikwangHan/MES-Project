@@ -39,6 +39,11 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\ops_package\02_scripts
 캡처 보안 체크리스트(필독):
 - `ops_package/03_docs/CAPTURE_REDACTION_CHECKLIST_1PAGE.md`
 
+캡처 sanity 확인(선택):
+```
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\ops_package\02_scripts\check_capture_sanity.ps1 -SessionId <세션ID>
+```
+
 요약 실행(10줄 복붙):
 - 초보자용: `ops_package/03_docs/REHEARSAL_Windows_10LINES.md`
 - 운영자용(조건 분기): `ops_package/03_docs/REHEARSAL_Windows_10LINES_OPERATOR.md`

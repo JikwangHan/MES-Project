@@ -29,3 +29,9 @@ YYYYMMDD_HHMM_번호_설명.png
 ## 4) 보안 주의
 
 - 캡처에 **비밀값(.env, 키, 토큰)**이 보이면 안 됩니다.
+
+## 5) 캡처 sanity 확인(권장)
+
+```
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\ops_package\02_scripts\check_capture_sanity.ps1 -SessionId <세션ID>
+```

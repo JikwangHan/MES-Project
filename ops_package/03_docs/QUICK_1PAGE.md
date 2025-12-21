@@ -70,3 +70,4 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\ops_package\02_scripts
 `ops_package/03_docs/ENV_MINIMUM_GUIDE_Windows_Rehearsal.md`
 `ops_package/03_docs/REHEARSAL_Windows_10LINES.md` (초보자용)
 `ops_package/03_docs/REHEARSAL_Windows_10LINES_OPERATOR.md` (운영자용/조건 분기)
+캡처 sanity 확인: `ops_package/02_scripts/check_capture_sanity.ps1`
