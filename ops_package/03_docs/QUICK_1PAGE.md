@@ -67,3 +67,4 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\ops_package\02_scripts
 `ops_package/03_docs/REHEARSAL_Windows_NSSM_SELFCHECK_PASS.md`
 `ops_package/03_docs/CAPTURE_INDEX_TEMPLATE.md`
 `ops_package/03_docs/ENV_MINIMUM_GUIDE_Windows_Rehearsal.md`
+`ops_package/03_docs/REHEARSAL_Windows_10LINES.md`

@@ -36,6 +36,9 @@ copy .env.example .env
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\ops_package\02_scripts\prepare_capture_session.ps1
 ```
 
+요약 실행(10줄 복붙):
+- `ops_package/03_docs/REHEARSAL_Windows_10LINES.md`
+
 필수 키 확인:
 - `MES_BASE_URL`
 - `MES_COMPANY_ID`
