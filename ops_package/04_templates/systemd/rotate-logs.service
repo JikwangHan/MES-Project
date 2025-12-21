@@ -1,0 +1,8 @@
+[Unit]
+Description=MES log rotation
+After=network.target
+
+[Service]
+Type=oneshot
+WorkingDirectory=/opt/mes-project
+ExecStart=/usr/bin/pwsh -NoProfile -File /opt/mes-project/ops_package/02_scripts/rotate_logs.ps1 -RetentionDays 30 -ArchiveRetentionDays 180 -EvidenceRetentionDays 365 -ArchiveSubdir /opt/mes-project/logs/archive/weekly -Compress

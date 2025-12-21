@@ -47,3 +47,15 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\ops_package\02_scripts
 ```
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\ops_package\02_scripts\hardening_selfcheck.ps1
 ```
+
+## 주간 로그 정리 등록 (요약)
+Windows:
+`ops_package/04_templates/windows/task_scheduler/weekly_rotate_logs.md`
+
+Linux:
+`ops_package/03_docs/INSTALL_Linux.md`의 타이머 등록 섹션
+
+수동 실행:
+```
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\ops_package\02_scripts\rotate_logs.ps1 -RetentionDays 30 -ArchiveRetentionDays 180 -EvidenceRetentionDays 365 -ArchiveSubdir "logs\\archive\\weekly" -Compress
+```

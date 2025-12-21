@@ -1,4 +1,4 @@
-<# 
+﻿<# 
   ops_package/02_scripts/rotate_logs.ps1
 
   목적
@@ -11,6 +11,9 @@
 
 param(
   [int]$RetentionDays = 30,
+  [int]$ArchiveRetentionDays = 180,
+  [int]$EvidenceRetentionDays = 365,
+  [string]$ArchiveSubdir = "logs\\archive\\weekly",
   [switch]$Compress
 )
 
@@ -20,7 +23,7 @@ $ErrorActionPreference = "Stop"
 $RepoRoot = (Resolve-Path (Join-Path $PSScriptRoot "..\..")).Path
 $LogsDir = Join-Path $RepoRoot "logs"
 $EvidenceDir = Join-Path $RepoRoot "ops_package\05_evidence"
-$ArchiveDir = Join-Path $LogsDir "archive"
+$ArchiveDir = Join-Path $RepoRoot $ArchiveSubdir
 $EvidenceArchiveDir = Join-Path $EvidenceDir "archive"
 
 function Ensure-Dir([string]$Path) {
@@ -33,11 +36,29 @@ function Get-OldFiles([string]$Path, [datetime]$Cutoff) {
     Where-Object { $_.LastWriteTime -lt $Cutoff }
 }
 
-$cutoff = (Get-Date).AddDays(-1 * $RetentionDays)
-Write-Host "==> 보관 기준: $RetentionDays 일 이전 파일 정리"
+$cutoffLogs = (Get-Date).AddDays(-1 * $RetentionDays)
+$cutoffArchive = (Get-Date).AddDays(-1 * $ArchiveRetentionDays)
+$cutoffEvidence = (Get-Date).AddDays(-1 * $EvidenceRetentionDays)
+$cutoffRecent = (Get-Date).AddHours(-24)
 
-$oldLogs = Get-OldFiles -Path $LogsDir -Cutoff $cutoff | Where-Object { $_.FullName -notmatch '\\archive\\' }
-$oldEvidence = Get-OldFiles -Path $EvidenceDir -Cutoff $cutoff | Where-Object { $_.FullName -notmatch '\\archive\\' }
+Write-Host "==> 정책: logs $RetentionDays 일, archive $ArchiveRetentionDays 일, evidence $EvidenceRetentionDays 일"
+
+$oldLogs = @(
+  Get-OldFiles -Path $LogsDir -Cutoff $cutoffLogs |
+    Where-Object { $_.FullName -notmatch '\\archive\\' } |
+    Where-Object { $_.LastWriteTime -lt $cutoffRecent } |
+    Where-Object { $_.Extension -notin @('.env', '.key') }
+)
+
+$oldEvidence = @(
+  Get-OldFiles -Path $EvidenceDir -Cutoff $cutoffEvidence |
+    Where-Object { $_.FullName -notmatch '\\archive\\' } |
+    Where-Object { $_.LastWriteTime -lt $cutoffRecent }
+)
+
+$oldArchives = @(
+  Get-OldFiles -Path $ArchiveDir -Cutoff $cutoffArchive
+)
 
 if ($Compress) {
   Ensure-Dir $ArchiveDir
@@ -61,6 +82,13 @@ if ($Compress) {
   } else {
     Write-Host "==> evidence 압축 대상 없음"
   }
+
+  if ($oldArchives.Count -gt 0) {
+    $oldArchives | Remove-Item -Force -ErrorAction SilentlyContinue
+    Write-Host "==> archive 정리 완료 (삭제)"
+  } else {
+    Write-Host "==> archive 정리 대상 없음"
+  }
 } else {
   if ($oldLogs.Count -gt 0) {
     $oldLogs | Remove-Item -Force -ErrorAction SilentlyContinue
@@ -74,5 +102,12 @@ if ($Compress) {
     Write-Host "==> evidence 정리 완료 (삭제)"
   } else {
     Write-Host "==> evidence 정리 대상 없음"
+  }
+
+  if ($oldArchives.Count -gt 0) {
+    $oldArchives | Remove-Item -Force -ErrorAction SilentlyContinue
+    Write-Host "==> archive 정리 완료 (삭제)"
+  } else {
+    Write-Host "==> archive 정리 대상 없음"
   }
 }

@@ -146,3 +146,17 @@ pwsh -NoProfile -ExecutionPolicy Bypass -File .\tools\release-gate.ps1 -ApplyTag
   - Linux: `ss -lntp | grep <port>`
 - 서비스 복구 옵션(재시작 정책) 확인
 - Pre-release 점검 시 “방화벽/권한/포트” 항목 추가 확인
+
+---
+
+## Annex B. 로그 보관 및 압축 정책 v0.1
+
+- 원본 logs 보관: **30일**
+- 주간 압축: **매주 일요일 03:10**
+- 압축 아카이브 보관: **180일**
+- evidence ZIP 보관: **365일**
+- 디렉터리 규칙:
+  - `logs/archive/weekly/` 아래로 주간 압축 저장
+  - `ops_package/05_evidence/` 아래 evidence ZIP 저장
+- 운영자 체크:
+  - 디스크 여유가 **15% 미만이면 경고**로 기록

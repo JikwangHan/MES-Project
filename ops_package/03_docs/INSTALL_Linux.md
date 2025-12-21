@@ -43,3 +43,14 @@ sudo journalctl -u mes -n 200
 ```
 pwsh -NoProfile -ExecutionPolicy Bypass -File ./scripts/ops/run_ticket_17_2.ps1 -IncludeP1
 ```
+
+## 7) 주간 로그 정리 타이머 등록
+
+```
+sudo cp ops_package/04_templates/systemd/rotate-logs.service /etc/systemd/system/rotate-logs.service
+sudo cp ops_package/04_templates/systemd/rotate-logs.timer /etc/systemd/system/rotate-logs.timer
+sudo systemctl daemon-reload
+sudo systemctl enable rotate-logs.timer
+sudo systemctl start rotate-logs.timer
+sudo systemctl status rotate-logs.timer
+```
