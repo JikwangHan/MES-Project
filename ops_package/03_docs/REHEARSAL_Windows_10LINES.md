@@ -11,6 +11,7 @@
 - NSSM 경로 예시: `C:\tools\nssm\nssm.exe`
 - `.env`는 반드시 **운영 서버 값으로 수정**
 - 비밀값(키/토큰)은 **화면 공유 금지**
+- 캡처 보안 체크리스트: `ops_package/03_docs/CAPTURE_REDACTION_CHECKLIST_1PAGE.md`
 
 ---
 

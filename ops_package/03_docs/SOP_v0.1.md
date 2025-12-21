@@ -180,3 +180,5 @@ pwsh -NoProfile -ExecutionPolicy Bypass -File .\tools\release-gate.ps1 -ApplyTag
    - `ops_package/03_docs/HANDOVER_SUBMISSION_1PAGE.md` 기준 충족
 
 리허설 문서: `ops_package/03_docs/REHEARSAL_Windows_NSSM_SELFCHECK_PASS.md`
+
+캡처 보안 체크리스트: `ops_package/03_docs/CAPTURE_REDACTION_CHECKLIST_1PAGE.md`

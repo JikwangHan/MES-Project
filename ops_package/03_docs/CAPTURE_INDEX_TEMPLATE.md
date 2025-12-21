@@ -1,5 +1,7 @@
 # 캡처 인덱스 템플릿 (운영 리허설용)
 
+캡처 전 필독: `ops_package/03_docs/CAPTURE_REDACTION_CHECKLIST_1PAGE.md`
+
 ## 1) 파일명 규칙
 
 ```

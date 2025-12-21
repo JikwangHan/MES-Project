@@ -12,6 +12,7 @@
 - 서비스명: `MES-WebServer`
 - `.env`는 **존재하면 덮어쓰지 않음**
 - 비밀값(키/토큰)은 **화면 공유 금지**
+- 캡처 보안 체크리스트: `ops_package/03_docs/CAPTURE_REDACTION_CHECKLIST_1PAGE.md`
 
 ---
 

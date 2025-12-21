@@ -110,6 +110,7 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\ops_package\02_scripts
 
 - 체크리스트: `ops_package/03_docs/REHEARSAL_Windows_NSSM_SELFCHECK_PASS.md`
 - 캡처 인덱스: `ops_package/03_docs/CAPTURE_INDEX_TEMPLATE.md`
+- 캡처 마스킹 체크리스트: `ops_package/03_docs/CAPTURE_REDACTION_CHECKLIST_1PAGE.md`
 - .env 최소값 가이드: `ops_package/03_docs/ENV_MINIMUM_GUIDE_Windows_Rehearsal.md`
 - 10줄 복붙(초보자용): `ops_package/03_docs/REHEARSAL_Windows_10LINES.md`
 - 10줄 복붙(운영자용/조건 분기): `ops_package/03_docs/REHEARSAL_Windows_10LINES_OPERATOR.md`
