@@ -59,3 +59,6 @@ Linux:
 ```
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\ops_package\02_scripts\rotate_logs.ps1 -RetentionDays 30 -ArchiveRetentionDays 180 -EvidenceRetentionDays 365 -ArchiveSubdir "logs\\archive\\weekly" -Compress
 ```
+
+## 인수인계 제출 체크리스트
+`ops_package/03_docs/HANDOVER_SUBMISSION_1PAGE.md`

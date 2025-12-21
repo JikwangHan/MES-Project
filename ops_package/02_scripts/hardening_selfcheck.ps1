@@ -88,4 +88,22 @@ if ($svc -and $svc.Status -eq "Running") {
   Record "FAIL" "HARDENING-05" "서비스 없음 ($svcName)"
 }
 
+# 6) 디스크 여유율 확인
+try {
+  $drive = $RepoRoot.Substring(0, 1) + ":"
+  $disk = Get-CimInstance Win32_LogicalDisk -Filter ("DeviceID='" + $drive + "'")
+  if ($disk -and $disk.Size -gt 0) {
+    $freePct = [math]::Round(($disk.FreeSpace / $disk.Size) * 100, 1)
+    if ($freePct -lt 5) {
+      Record "FAIL" "HARDENING-06" "디스크 여유율 낮음 ($freePct`%)"
+    } elseif ($freePct -lt 15) {
+      Write-Host "[WARN] HARDENING-06 디스크 여유율 경고 ($freePct`%)"
+    } else {
+      Record "PASS" "HARDENING-06" "디스크 여유율 정상 ($freePct`%)"
+    }
+  }
+} catch {
+  Write-Host "[WARN] HARDENING-06 디스크 여유율 확인 실패"
+}
+
 Write-Host "==> 결과: PASS=$pass, FAIL=$fail"

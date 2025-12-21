@@ -97,3 +97,9 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\ops_package\02_scripts
 
 - Windows: `ops_package/04_templates/windows/task_scheduler/weekly_rotate_logs.md`
 - Linux: `ops_package/03_docs/INSTALL_Linux.md`의 타이머 등록 섹션
+
+---
+
+## 인수인계 제출 체크리스트
+
+1페이지 문서: `ops_package/03_docs/HANDOVER_SUBMISSION_1PAGE.md`

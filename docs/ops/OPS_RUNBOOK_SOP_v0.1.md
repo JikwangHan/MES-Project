@@ -181,3 +181,21 @@ pwsh -NoProfile -ExecutionPolicy Bypass -File .\tools\release-gate.ps1 -ApplyTag
   - `ops_package/05_evidence/` 아래 evidence ZIP 저장
 - 운영자 체크:
   - 디스크 여유가 **15% 미만이면 경고**로 기록
+
+---
+
+## Annex C. 운영 인수인계 완료 조건(Exit Criteria) v0.1
+
+아래 조건을 모두 만족해야 **인수인계 완료**로 판단합니다.
+
+1) 서비스 설치 완료  
+   - Windows: NSSM 서비스 등록 완료  
+   - Linux: systemd 서비스/타이머 등록 완료
+2) 서비스 기동 후 health 200 확인  
+   - 기준: `$env:MES_BASE_URL/health`
+3) Ticket-17.2 Daily(P0) 통과  
+   - PASS=8, FAIL=0
+4) 하드닝 자가점검 통과  
+   - `hardening_selfcheck.ps1`에서 **필수 항목 PASS**
+5) 제출 체크리스트 충족  
+   - `ops_package/03_docs/HANDOVER_SUBMISSION_1PAGE.md` 기준 충족
