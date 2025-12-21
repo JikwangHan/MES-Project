@@ -29,6 +29,13 @@ node -v
 copy .env.example .env
 ```
 
+최소값 가이드: `ops_package/03_docs/ENV_MINIMUM_GUIDE_Windows_Rehearsal.md`
+
+캡처 세션 준비(권장):
+```
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\ops_package\02_scripts\prepare_capture_session.ps1
+```
+
 필수 키 확인:
 - `MES_BASE_URL`
 - `MES_COMPANY_ID`

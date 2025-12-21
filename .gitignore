@@ -19,6 +19,7 @@ data/
 .env
 .env.*
 !.env.example
+!ops_package/04_templates/env/.env.rehearsal.windows.example
 .local
 
 # 임시 파일
@@ -35,6 +36,7 @@ ops_package/05_evidence/*.zip
 ops_package/06_dist/*.zip
 ops_package/05_evidence/archive/
 ops_package/06_dist/HANDOVER_BUNDLE_*.zip
+ops_package/05_evidence/captures/
 
 # ERD 산출물(이미지/벡터)
 docs/erd/*.png
