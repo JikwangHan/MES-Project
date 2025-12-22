@@ -97,4 +97,5 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\ops_package\02_scripts
 외부 제출(기관/고객)은 SOP Annex D-2 **한글 1줄 템플릿을 권장**하고, COPIED_BUNDLE_PATH는 금지합니다.
 외부 제출 2줄 예시: `ops_package/03_docs/EXTERNAL_SUBMISSION_MESSAGE_EXAMPLES_2LINES.md`
 포털 코멘트 2줄 예시: `ops_package/03_docs/EXTERNAL_SUBMISSION_MESSAGE_EXAMPLES_2LINES.md`
+포털이 1줄만 허용하면 ‘초압축 1줄(파일명+SessionId+PASS)’을 사용합니다.
 

@@ -46,3 +46,16 @@
 
 금지(한 줄)
 로컬 경로/COPIED_BUNDLE_PATH, 서버명·계정명, 내부 커밋 해시
+
+---
+
+## 옵션: 포털 코멘트 1줄만 허용 시(초압축, 최소 노출)
+
+한글 1줄
+`제출파일=________.zip | 증빙ID=SessionId________ | 상태=PASS`
+
+영문 1줄
+`File=________.zip | Evidence=SessionId________ | Status=PASS`
+
+주의(한 줄)
+경로(COPIED_BUNDLE_PATH), 서버명/계정명, 커밋 해시는 외부 코멘트에 금지

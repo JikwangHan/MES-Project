@@ -66,3 +66,4 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\ops_package\02_scripts
 - [ ] `COPIED_BUNDLE_PATH`는 외부 제출에 사용하지 않습니다.
 - [ ] 외부 제출 메시지 2줄 예시: `ops_package/03_docs/EXTERNAL_SUBMISSION_MESSAGE_EXAMPLES_2LINES.md`
 - [ ] 포털 코멘트 2줄 예시: `ops_package/03_docs/EXTERNAL_SUBMISSION_MESSAGE_EXAMPLES_2LINES.md`
+- [ ] 1줄 제한 포털: 초압축 1줄 옵션 사용
