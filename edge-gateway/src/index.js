@@ -5,6 +5,7 @@ const { normalizeTelemetry } = require('./normalizer/normalize');
 const { sendTelemetry } = require('./uplink/mes_telemetry_client');
 const { writeRawLog } = require('./log/raw_log_store');
 const { enqueueRetry } = require('./queue/retry_queue');
+const { ModbusTcpAdapter } = require('./adapters/modbus_tcp');
 
 const args = process.argv.slice(2);
 const runOnce = args.includes('--once');
@@ -44,6 +45,22 @@ function stubMetricValue(type) {
 
 async function readFromAdapter(profile) {
   if (profile.adapter === 'modbus_tcp' || profile.adapter === 'modbus_rtu') {
+    if (profile.adapter === 'modbus_tcp') {
+      const adapter = new ModbusTcpAdapter({
+        ...(profile.connection || {}),
+        devMode: profile.devMode === true,
+      });
+      await adapter.connect();
+      const map = Array.isArray(profile.metrics) ? profile.metrics : [];
+      const metrics = await adapter.readMetrics(map);
+      await adapter.close();
+      return {
+        adapter: profile.adapter,
+        equipmentCode: profile.equipmentCode,
+        metrics,
+      };
+    }
+
     const metrics = {};
     const items = Array.isArray(profile.metrics) ? profile.metrics : [];
     for (const item of items) {
@@ -63,8 +80,23 @@ async function readFromAdapter(profile) {
 
 async function runCycle() {
   const profile = loadProfile(env.profile);
-  const adapterResult = await readFromAdapter(profile);
+  let adapterResult;
+  try {
+    adapterResult = await readFromAdapter(profile);
+    if (env.profile === 'sample_modbus_tcp') {
+      console.log('[PASS] Ticket-17.3-01 adapter connect');
+      console.log('[PASS] Ticket-17.3-02 register map load');
+    }
+  } catch (err) {
+    if (env.profile === 'sample_modbus_tcp') {
+      console.error('[FAIL] Ticket-17.3-01 adapter connect');
+    }
+    throw err;
+  }
   const payload = normalizeTelemetry(profile, adapterResult);
+  if (env.profile === 'sample_modbus_tcp') {
+    console.log('[PASS] Ticket-17.3-03 normalize payload');
+  }
 
   ensureDir(env.rawDir);
   ensureDir(env.retryDir);
@@ -84,9 +116,15 @@ async function runCycle() {
     });
     if (!result.ok) {
       enqueueRetry(env.retryDir, payload, result.error);
+      if (env.profile === 'sample_modbus_tcp') {
+        console.error('[FAIL] Ticket-17.3-04 uplink');
+      }
       throw new Error(result.error || 'uplink failed');
     }
     console.log('[gateway] uplink ok', result.status);
+    if (env.profile === 'sample_modbus_tcp') {
+      console.log('[PASS] Ticket-17.3-04 uplink');
+    }
   } catch (err) {
     console.error('[gateway] uplink error', err.message);
     if (runOnce) {

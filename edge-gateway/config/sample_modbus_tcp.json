@@ -7,9 +7,7 @@
     "unitId": 1
   },
   "equipmentCode": "EQ-GW-001",
-  "metrics": [
-    { "name": "temperature", "address": 0, "type": "float" },
-    { "name": "pressure", "address": 2, "type": "float" }
-  ]
+  "devMode": true,
+  "registerMapFile": "register_maps/sample_modbus_tcp_registers.json"
 }
 
