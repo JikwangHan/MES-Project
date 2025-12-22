@@ -27,3 +27,29 @@
 
 ## P0 원칙(중요)
 - 상태는 timestamp 기반으로만 판정하며, 오류 원인 분류는 P0에 넣지 않는다.
+
+## API 계약(P0 최소)
+- 장비 목록: GET /api/v1/equipments
+  - 필수 필드: id, name, code, deviceKeyId, lastSeenAt, status
+  - status: OK/WARNING/NEVER, status 필터는 OK/WARNING/NEVER/ALL만 허용
+- 장비 상세 최근 텔레메트리: GET /api/v1/equipments/{id}/telemetry?limit=20
+  - 필수 필드: eventTs, metricCount
+  - limit 허용 범위: 1..100
+- 대시보드 상태 요약: GET /api/v1/dashboard/telemetry-status
+  - 필수 필드: counts.ok, counts.warning, counts.never, staleMinutes, lastComputedAt
+
+## 기준값
+- TELEMETRY_STALE_MIN 기본값: 5 (분)
+
+## 스모크 실행(복붙)
+```
+pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/smoke_ui_p0.ps1
+```
+
+## 실측 PASS 기록
+- 실행 시각(KST): 2025-12-22 18:13
+- PASS 근거(로그):
+  - [PASS] UI-P0-01 equipments list fields (lastSeenAt/status)
+  - [PASS] UI-P0-02 dashboard telemetry status counts
+  - [PASS] UI-P0-03 equipment telemetry list (eventTs/metricCount)
+  - [PASS] UI P0 smoke completed

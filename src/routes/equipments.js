@@ -4,23 +4,13 @@ const { ok, fail } = require('../utils/response');
 const { ensureNotViewer } = require('../middleware/auth');
 const ERR = require('../constants/errors');
 const { encryptSecret } = require('../utils/crypto');
+const { getStaleMinutes, getStatus } = require('../utils/telemetryStatus');
 const { v4: uuidv4 } = require('uuid');
 const crypto = require('crypto');
 
 const router = express.Router();
 
-const getStaleMinutes = () => {
-  const value = Number(process.env.TELEMETRY_STALE_MIN || 5);
-  return Number.isFinite(value) && value > 0 ? value : 5;
-};
-
-const calcStatus = (lastSeenAt, staleMinutes) => {
-  if (!lastSeenAt) return 'NEVER';
-  const last = new Date(lastSeenAt);
-  if (Number.isNaN(last.getTime())) return 'NEVER';
-  const diffMin = (Date.now() - last.getTime()) / 60000;
-  return diffMin > staleMinutes ? 'WARNING' : 'OK';
-};
+const STATUS_VALUES = new Set(['OK', 'WARNING', 'NEVER', 'ALL']);
 
 const getProcess = (id) =>
   db.prepare('SELECT id, company_id FROM processes WHERE id = ?').get(id);
@@ -141,6 +131,11 @@ router.get('/', (req, res) => {
   const companyId = req.companyId;
   const staleMinutes = getStaleMinutes();
   const statusFilter = String(req.query.status || '').toUpperCase();
+  if (statusFilter && !STATUS_VALUES.has(statusFilter)) {
+    return res
+      .status(400)
+      .json(fail(ERR.VALIDATION_ERROR.code, 'status는 OK/WARNING/NEVER/ALL 중 하나여야 합니다.'));
+  }
   const rows = db
     .prepare(
       `SELECT id, company_id as companyId, name, code, process_id as processId,
@@ -155,7 +150,7 @@ router.get('/', (req, res) => {
     .all(companyId);
   const items = rows.map((row) => ({
     ...row,
-    status: calcStatus(row.lastSeenAt, staleMinutes),
+    status: getStatus(row.lastSeenAt, staleMinutes),
   }));
   const filtered = ['OK', 'WARNING', 'NEVER'].includes(statusFilter)
     ? items.filter((item) => item.status === statusFilter)

@@ -87,6 +87,8 @@ const parseDateRange = (fromRaw, toRaw, defaultDays, maxDays) => {
   };
 };
 
+const { getStaleMinutes, getStatus } = require('../utils/telemetryStatus');
+
 const parseThreshold = (raw, defaultValue) => {
   if (raw === undefined || raw === null || raw === '') return defaultValue;
   const value = Number(raw);
@@ -98,11 +100,6 @@ const calcDefectRatePct = (goodQty, defectQty) => {
   const total = goodQty + defectQty;
   if (!total) return 0;
   return Number(((defectQty / total) * 100).toFixed(2));
-};
-
-const getStaleMinutes = () => {
-  const value = Number(process.env.TELEMETRY_STALE_MIN || 5);
-  return Number.isFinite(value) && value > 0 ? value : 5;
 };
 
 router.get('/kpis', (req, res) => {
@@ -638,20 +635,12 @@ router.get('/telemetry-status', (req, res) => {
   let okCount = 0;
   let warningCount = 0;
   let neverCount = 0;
-  const now = Date.now();
 
   for (const row of rows) {
-    if (!row.lastSeenAt) {
+    const status = getStatus(row.lastSeenAt, staleMinutes);
+    if (status === 'NEVER') {
       neverCount += 1;
-      continue;
-    }
-    const last = new Date(row.lastSeenAt);
-    if (Number.isNaN(last.getTime())) {
-      neverCount += 1;
-      continue;
-    }
-    const diffMin = (now - last.getTime()) / 60000;
-    if (diffMin > staleMinutes) {
+    } else if (status === 'WARNING') {
       warningCount += 1;
     } else {
       okCount += 1;
