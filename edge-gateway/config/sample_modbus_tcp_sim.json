@@ -1,0 +1,13 @@
+{
+  "profile": "sample_modbus_tcp_sim",
+  "adapter": "modbus_tcp",
+  "connection": {
+    "host": "127.0.0.1",
+    "port": 1502,
+    "unitId": 1,
+    "timeoutMs": 3000
+  },
+  "equipmentCode": "EQ-GW-001",
+  "devMode": false,
+  "registerMapFile": "register_maps/sample_modbus_tcp_registers.json"
+}

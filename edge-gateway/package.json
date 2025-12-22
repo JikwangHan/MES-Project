@@ -9,6 +9,9 @@
     "once": "node src/index.js --once",
     "smoke": "pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/smoke-gateway.ps1"
   },
+  "dependencies": {
+    "modbus-serial": "^10.0.0"
+  },
   "engines": {
     "node": ">=18"
   }
