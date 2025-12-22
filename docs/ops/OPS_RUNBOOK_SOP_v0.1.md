@@ -210,3 +210,21 @@ pwsh -NoProfile -ExecutionPolicy Bypass -File .\tools\release-gate.ps1 -ApplyTag
 최종 5줄 가이드: `ops_package/03_docs/REHEARSAL_Windows_5LINES_OPERATOR.md`
 최종 판정:
 - `judge_handover_ready.ps1`에서 [PASS] 확인
+
+---
+
+## Annex D. 네트워크 불안정( git push 타임아웃 ) 예외 절차(제출 우선)
+
+원칙
+- 제출은 **번들 ZIP + 판정기 PASS**가 기준입니다. git push 성공 여부와 분리합니다.
+- 단, 사후 push는 반드시 수행하고 미반영 기간을 최소화합니다.
+
+절차(5줄)
+1) 번들 생성: `build_handover_bundle.ps1` 실행 → `LATEST_BUNDLE` 파일명 확인/기록
+2) 최종 판정: `judge_handover_ready.ps1` 결과가 **[PASS] HANDOVER READY**인지 확인
+3) 제출: `LATEST_BUNDLE` ZIP 제출(메일/메신저/업로드)
+4) 기록: 제출 메시지에 `Commit=<현재 HEAD 해시>, Bundle=<LATEST_BUNDLE>, SessionId=<캡처 세션>` 1줄 남김
+5) 사후 처리: 네트워크 회복 시 `git push` 재시도 → 완료 후 “push 완료”를 동일 기록 채널에 추가
+
+주의
+- **[FAIL]이면 제출 금지**(캡처/번들 누락 가능)
