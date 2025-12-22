@@ -54,3 +54,7 @@ node src/index.js --once
   - `[PASS] Ticket-17.3-02 register map load`
   - `[PASS] Ticket-17.3-03 normalize payload`
   - `[PASS] Ticket-17.3-04 uplink`
+
+## 재현성 확인
+- npm ci 완료(KST): 2025-12-22 17:58
+- modbus-serial 버전: 8.0.23

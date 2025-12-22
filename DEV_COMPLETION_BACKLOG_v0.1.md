@@ -9,6 +9,9 @@
 2) 운영 산출물 변경 최소화: 안정성 유지가 최우선이다.
 3) 새 기능은 Ticket 기반으로 자동 테스트에 편입한다.
 
+## 참고 링크
+- P0 닫기 1장 체크리스트: P0_CLOSEOUT_CHECKLIST_1PAGE_v0.1.md
+
 ## 현 상태 요약(게이트웨이)
 - uplink: `edge-gateway/src/uplink/mes_telemetry_client.js`에서 `/api/v1/telemetry/events`로 전송
 - 서명/nonce: `x-device-key`, `x-ts`, `x-nonce`, `x-signature`, `x-canonical` 헤더 사용
