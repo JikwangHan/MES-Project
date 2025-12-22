@@ -94,4 +94,5 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\ops_package\02_scripts
 네트워크 불안정 시: 번들 ZIP + 판정기 PASS로 먼저 제출하고, push는 사후 처리(자세한 내용은 SOP Annex D).
 제출 메시지에는 SOP Annex D-1의 ‘기록 1줄 템플릿’을 그대로 복붙해 Commit/Bundle/SessionId 추적을 고정하세요.
 제출 메시지 첫 줄에 HANDOVER_RECORD를 붙여넣고, 제목은 번들 파일명만 적습니다.
+외부 제출(기관/고객)은 SOP Annex D-2 템플릿(경로 없음)만 사용하고, COPIED_BUNDLE_PATH는 금지합니다.
 

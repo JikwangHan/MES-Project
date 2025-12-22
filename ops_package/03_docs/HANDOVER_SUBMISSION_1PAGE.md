@@ -56,3 +56,11 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\ops_package\02_scripts
   - `check_handover_bundle_contents.ps1` 실행 후 PASS 확인
 - [ ] 최종 판정:
   - `judge_handover_ready.ps1` 실행 후 [PASS] 확인
+
+---
+
+## E) 외부 제출 규칙(기관/고객)
+
+- [ ] 외부 제출은 **파일명만** 사용합니다(경로 금지).
+- [ ] 기록 템플릿은 `SOP Annex D-2`만 사용합니다.
+- [ ] `COPIED_BUNDLE_PATH`는 외부 제출에 사용하지 않습니다.

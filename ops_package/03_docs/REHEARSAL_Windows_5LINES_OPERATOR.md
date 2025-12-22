@@ -36,6 +36,8 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass -Command "$capRoot='.\ops_pack
 - (표준) 4번째 줄 실행 직후 경로 복사: `powershell.exe -NoProfile -Command "$b=(Get-ChildItem -Path . -Filter 'HANDOVER_BUNDLE_*.zip' -File -ErrorAction SilentlyContinue | Sort-Object LastWriteTime | Select-Object -Last 1); if($b){$b.FullName | Set-Clipboard; Write-Host ('COPIED_BUNDLE_PATH=' + $b.FullName)} else {Write-Host '[WARN] No HANDOVER_BUNDLE zip found to copy'}"`
 - 이 값을 메신저/이메일에 Ctrl+V로 그대로 붙여넣으면 됩니다.
 - 붙여넣기 위치(표준): 메신저 제출 스레드 첫 메시지 또는 이메일 본문 첫 줄 또는 업로드 코멘트 첫 줄에 Annex D-1 HANDOVER_RECORD 1줄을 그대로 붙여넣고, 이메일 제목은 LATEST_BUNDLE 파일명만 기입
+- 내부 제출(사내): Annex D-1 템플릿 사용, COPIED_BUNDLE_PATH 포함 가능
+- 외부 제출(기관/고객): COPIED_BUNDLE_NAME만 사용, COPIED_BUNDLE_PATH 금지, Annex D-2 템플릿 사용
 - (옵션) 4번째 줄 실행 직후 파일명만 복사: `powershell.exe -NoProfile -Command "$b=(Get-ChildItem -Path . -Filter 'HANDOVER_BUNDLE_*.zip' -File -ErrorAction SilentlyContinue | Sort-Object LastWriteTime | Select-Object -Last 1); if($b){$b.Name | Set-Clipboard; Write-Host ('COPIED_BUNDLE_NAME=' + $b.Name)} else {Write-Host '[WARN] No HANDOVER_BUNDLE zip found to copy'}"`
 - 표준은 경로 복사이며, 필요 시 파일명만 복사하세요.
 - 번들 폴더 바로 열기(표준): explorer.exe .
