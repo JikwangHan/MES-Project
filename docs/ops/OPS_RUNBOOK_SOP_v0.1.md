@@ -246,10 +246,10 @@ pwsh -NoProfile -ExecutionPolicy Bypass -File .\tools\release-gate.ps1 -ApplyTag
 - 금지: **COPIED_BUNDLE_PATH**, 로컬 디렉터리, 서버명, 사용자 계정명, 내부 커밋 해시의 외부 노출
 
 템플릿(복붙용)
-`HANDOVER_RECORD_EXT | KST=YYYY-MM-DD HH:mm | Bundle=________.zip | SessionId=________ | Judge=PASS | Push=DEFERRED(timeout) | Operator=________ | Target=Windows`
+`HANDOVER_EXT | KST=YYYY-MM-DD HH:mm | File=________.zip | Evidence=SessionId________ | Status=PASS | Sender=________`
 
 예시
-`HANDOVER_RECORD_EXT | KST=2025-12-22 16:10 | Bundle=HANDOVER_BUNDLE_v0.1_20251222_1610.zip | SessionId=20251222_1601 | Judge=PASS | Push=DEFERRED(timeout) | Operator=BG | Target=Windows`
+`HANDOVER_EXT | KST=2025-12-22 16:10 | File=HANDOVER_BUNDLE_v0.1_20251222_1610.zip | Evidence=SessionId20251222_1601 | Status=PASS | Sender=BG`
 
 주의(금지)
 - .env 값, API 키, 토큰, 비밀번호, 민감 식별정보는 기록/캡처에 절대 포함하지 않습니다.
