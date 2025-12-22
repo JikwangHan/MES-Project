@@ -227,6 +227,12 @@ pwsh -NoProfile -ExecutionPolicy Bypass -File .\tools\release-gate.ps1 -ApplyTag
 템플릿(복붙용)
 `HANDOVER_EXT | KST=YYYY-MM-DD HH:mm | File=________.zip | Evidence=SessionId________ | Status=PASS | Sender=________`
 
+한글 템플릿(기관/고객 메시지 권장)
+`제출기록 | 기준시각(KST)=YYYY-MM-DD HH:mm | 제출파일=________.zip | 증빙ID=SessionId________ | 상태=PASS | 제출자=________`
+
+사용 규칙
+- 기관/고객 메시지에는 **한글 1줄**을 권장하며, 내부 기록에는 영문 1줄을 유지합니다.
+
 예시
 `HANDOVER_EXT | KST=2025-12-22 16:10 | File=HANDOVER_BUNDLE_v0.1_20251222_1610.zip | Evidence=SessionId20251222_1601 | Status=PASS | Sender=BG`
 
