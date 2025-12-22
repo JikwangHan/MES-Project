@@ -90,4 +90,5 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\ops_package\02_scripts
 운영자용 최종 5줄은 마지막 줄에 판정기까지 포함됩니다.
 운영자용 5줄 4번째 줄에 LATEST_BUNDLE=...가 출력되면 그 파일이 제출 대상입니다.
 필요하면 explorer.exe . 로 번들 위치를 바로 열어 확인하세요.
+제출 메시지에는 COPIED_BUNDLE_PATH 명령으로 경로를 복사해 Ctrl+V로 붙여넣기 하세요.
 
