@@ -259,3 +259,30 @@ pwsh -NoProfile -ExecutionPolicy Bypass -File .\tools\release-gate.ps1 -ApplyTag
 
 주의(금지)
 - .env 값, API 키, 토큰, 비밀번호, 민감 식별정보는 기록/캡처에 절대 포함하지 않습니다.
+
+---
+
+## Annex E. git push 타임아웃 1분 진단(최소 3줄)
+
+E-1. 네트워크 443 기본 확인
+```
+powershell.exe -NoProfile -Command "Test-NetConnection github.com -Port 443"
+```
+- FAIL: DNS/방화벽/프록시/망 문제 가능성 ↑ → Annex D(제출 우선) 적용 후 복구 시 push 재시도
+- PASS: 다음 단계
+
+E-2. 원격 접근/인증 확인
+```
+git ls-remote --heads origin
+```
+- 401/403: 인증/권한 이슈 가능성 ↑
+- 정상 목록 출력: 원격 접근 OK → 다음 단계
+
+E-3. push 상세 진단(짧게)
+```
+git push --verbose
+```
+- timeout 반복: Annex D 적용(제출 우선), 네트워크 안정 후 재시도
+
+주의
+- 표준 진단에는 `GIT_CURL_VERBOSE` 같은 상세 디버그를 포함하지 않습니다(민감정보 노출 가능).
