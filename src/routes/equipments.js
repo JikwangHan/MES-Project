@@ -9,6 +9,19 @@ const crypto = require('crypto');
 
 const router = express.Router();
 
+const getStaleMinutes = () => {
+  const value = Number(process.env.TELEMETRY_STALE_MIN || 5);
+  return Number.isFinite(value) && value > 0 ? value : 5;
+};
+
+const calcStatus = (lastSeenAt, staleMinutes) => {
+  if (!lastSeenAt) return 'NEVER';
+  const last = new Date(lastSeenAt);
+  if (Number.isNaN(last.getTime())) return 'NEVER';
+  const diffMin = (Date.now() - last.getTime()) / 60000;
+  return diffMin > staleMinutes ? 'WARNING' : 'OK';
+};
+
 const getProcess = (id) =>
   db.prepare('SELECT id, company_id FROM processes WHERE id = ?').get(id);
 
@@ -126,17 +139,86 @@ router.post('/', ensureNotViewer, (req, res) => {
 // GET /api/v1/equipments
 router.get('/', (req, res) => {
   const companyId = req.companyId;
+  const staleMinutes = getStaleMinutes();
+  const statusFilter = String(req.query.status || '').toUpperCase();
   const rows = db
     .prepare(
       `SELECT id, company_id as companyId, name, code, process_id as processId,
               comm_type as commType, comm_config_json as commConfigJson,
-              is_active as isActive, created_at as createdAt
+              is_active as isActive, created_at as createdAt,
+              device_key_id as deviceKeyId,
+              device_key_last_seen_at as lastSeenAt
        FROM equipments
        WHERE company_id = ?
        ORDER BY id`
     )
     .all(companyId);
-  return res.json(ok(rows));
+  const items = rows.map((row) => ({
+    ...row,
+    status: calcStatus(row.lastSeenAt, staleMinutes),
+  }));
+  const filtered = ['OK', 'WARNING', 'NEVER'].includes(statusFilter)
+    ? items.filter((item) => item.status === statusFilter)
+    : items;
+  return res.json(ok(filtered));
+});
+
+// GET /api/v1/equipments/:id/telemetry?limit=
+router.get('/:id/telemetry', (req, res) => {
+  const companyId = req.companyId;
+  const equipmentId = Number(req.params.id);
+  if (!Number.isInteger(equipmentId) || equipmentId <= 0) {
+    return res.status(400).json(fail(ERR.VALIDATION_ERROR.code, 'equipmentId가 올바르지 않습니다.'));
+  }
+
+  const equipment = db
+    .prepare('SELECT id, company_id as companyId FROM equipments WHERE id = ?')
+    .get(equipmentId);
+  if (!equipment || equipment.companyId !== companyId) {
+    return res.status(404).json(fail(ERR.NOT_FOUND.code, ERR.NOT_FOUND.message));
+  }
+
+  let limitValue = 20;
+  if (req.query.limit !== undefined) {
+    const parsed = Number(req.query.limit);
+    if (!Number.isInteger(parsed) || parsed <= 0 || parsed > 100) {
+      return res
+        .status(400)
+        .json(fail(ERR.TELEMETRY_LIMIT_INVALID.code, ERR.TELEMETRY_LIMIT_INVALID.message));
+    }
+    limitValue = parsed;
+  }
+
+  const rows = db
+    .prepare(
+      `SELECT event_ts as eventTs, payload_json as payloadJson
+       FROM telemetry_events
+       WHERE company_id = ? AND equipment_id = ?
+       ORDER BY event_ts DESC
+       LIMIT ?`
+    )
+    .all(companyId, equipmentId, limitValue);
+
+  const items = rows.map((row) => {
+    let metricCount = 0;
+    try {
+      const payload = JSON.parse(row.payloadJson || '{}');
+      if (Array.isArray(payload)) {
+        metricCount = payload.length;
+      } else if (payload && typeof payload === 'object') {
+        if (Array.isArray(payload.metrics)) {
+          metricCount = payload.metrics.length;
+        } else if (payload.metrics && typeof payload.metrics === 'object') {
+          metricCount = Object.keys(payload.metrics).length;
+        }
+      }
+    } catch (err) {
+      metricCount = 0;
+    }
+    return { eventTs: row.eventTs, metricCount };
+  });
+
+  return res.json(ok(items));
 });
 
 // POST /api/v1/equipments/:id/device-key

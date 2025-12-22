@@ -100,6 +100,11 @@ const calcDefectRatePct = (goodQty, defectQty) => {
   return Number(((defectQty / total) * 100).toFixed(2));
 };
 
+const getStaleMinutes = () => {
+  const value = Number(process.env.TELEMETRY_STALE_MIN || 5);
+  return Number.isFinite(value) && value > 0 ? value : 5;
+};
+
 router.get('/kpis', (req, res) => {
   const companyId = req.companyId;
   const range = parseDateRange(req.query.from, req.query.to, 7, 366);
@@ -614,6 +619,54 @@ router.get('/alerts', (req, res) => {
       recentInspections,
       recentWorkOrders,
       recentDefects,
+    })
+  );
+});
+
+// GET /api/v1/dashboard/telemetry-status
+router.get('/telemetry-status', (req, res) => {
+  const companyId = req.companyId;
+  const staleMinutes = getStaleMinutes();
+  const rows = db
+    .prepare(
+      `SELECT id, device_key_last_seen_at as lastSeenAt
+       FROM equipments
+       WHERE company_id = ?`
+    )
+    .all(companyId);
+
+  let okCount = 0;
+  let warningCount = 0;
+  let neverCount = 0;
+  const now = Date.now();
+
+  for (const row of rows) {
+    if (!row.lastSeenAt) {
+      neverCount += 1;
+      continue;
+    }
+    const last = new Date(row.lastSeenAt);
+    if (Number.isNaN(last.getTime())) {
+      neverCount += 1;
+      continue;
+    }
+    const diffMin = (now - last.getTime()) / 60000;
+    if (diffMin > staleMinutes) {
+      warningCount += 1;
+    } else {
+      okCount += 1;
+    }
+  }
+
+  return res.json(
+    ok({
+      staleMinutes,
+      lastComputedAt: new Date().toISOString(),
+      counts: {
+        ok: okCount,
+        warning: warningCount,
+        never: neverCount,
+      },
     })
   );
 });

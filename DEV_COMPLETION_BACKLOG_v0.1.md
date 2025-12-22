@@ -11,6 +11,7 @@
 
 ## 참고 링크
 - P0 닫기 1장 체크리스트: P0_CLOSEOUT_CHECKLIST_1PAGE_v0.1.md
+- UI P0 최소 요구사항(5줄): UI_P0_MIN_REQUIREMENTS_5LINES_v0.1.md
 
 ## 현 상태 요약(게이트웨이)
 - uplink: `edge-gateway/src/uplink/mes_telemetry_client.js`에서 `/api/v1/telemetry/events`로 전송
