@@ -1,0 +1,11 @@
+{
+  "profile": "sample_modbus_tcp",
+  "adapter": "modbus_tcp",
+  "connection": {
+    "host": "127.0.0.1",
+    "port": 502,
+    "unitId": 1
+  },
+  "equipmentCode": "EQ-GW-001",
+  "registerMapFile": "register_maps/sample_modbus_tcp_registers.json"
+}
