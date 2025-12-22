@@ -286,3 +286,13 @@ git push --verbose
 
 주의
 - 표준 진단에는 `GIT_CURL_VERBOSE` 같은 상세 디버그를 포함하지 않습니다(민감정보 노출 가능).
+
+### E-4. 결과 기록 1줄(복붙)
+템플릿(최소)
+`PUSH_DIAG | KST=YYYY-MM-DD HH:mm | Net443=PASS/FAIL | LsRemote=PASS/FAIL/403/401 | Push=OK/TIMEOUT/REJECTED | Action=AnnexD_SUBMIT_FIRST/RETRY_LATER`
+
+옵션 템플릿(추적성 강화)
+`PUSH_DIAG | KST=YYYY-MM-DD HH:mm | Net443=PASS/FAIL | LsRemote=PASS/FAIL/403/401 | Push=OK/TIMEOUT/REJECTED | Action=AnnexD_SUBMIT_FIRST/RETRY_LATER | Operator=____ | Target=Windows`
+
+주의
+- 기록에는 로컬 경로, 서버명, 계정명, 토큰 등 민감 정보를 넣지 않습니다.

@@ -99,4 +99,5 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\ops_package\02_scripts
 포털 코멘트 2줄 예시: `ops_package/03_docs/EXTERNAL_SUBMISSION_MESSAGE_EXAMPLES_2LINES.md`
 포털이 1줄만 허용하면 ‘초압축 1줄(파일명+SessionId+PASS)’을 사용합니다.
 push 타임아웃 시: Annex E(3줄 진단) → Annex D(제출 우선, push 사후) 적용
+진단 후 PUSH_DIAG 1줄을 운영 기록에 남깁니다(Annex E-4 복붙).
 
