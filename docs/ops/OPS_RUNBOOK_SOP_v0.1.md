@@ -298,3 +298,9 @@ git push --verbose
 - 기록에는 로컬 경로, 서버명, 계정명, 토큰 등 민감 정보를 넣지 않습니다.
 기록 위치(표준): 내부 운영 스레드(제출/장애 대응 채널) 첫 메시지 또는 운영 일지 파일(OPS_DIAG_LOG.md)에 E-4 1줄을 그대로 추가합니다. 외부 채널에는 기록 금지.
 운영 일지 파일: `OPS_DIAG_LOG.md`
+
+E-5. 진단 스크립트 1줄 실행(기록 자동화)
+```
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\ops_package\02_scripts\push_diag_and_log.ps1
+```
+- push까지 시도하려면: `-AttemptPush`

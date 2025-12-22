@@ -102,4 +102,5 @@ push 타임아웃 시: Annex E(3줄 진단) → Annex D(제출 우선, push 사�
 진단 후 PUSH_DIAG 1줄을 운영 기록에 남깁니다(Annex E-4 복붙).
 진단 기록은 내부 운영 스레드 첫 줄(또는 OPS_DIAG_LOG.md)에 남기고 외부 채널에는 기록하지 않습니다.
 내부 운영 일지 파일: `OPS_DIAG_LOG.md`
+push 타임아웃이면 `push_diag_and_log.ps1` 1회 실행으로 진단/기록을 자동화할 수 있습니다.
 
