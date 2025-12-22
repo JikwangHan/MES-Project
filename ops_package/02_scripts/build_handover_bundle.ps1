@@ -34,6 +34,7 @@ $handoverDoc = Join-Path $RepoRoot "ops_package\\03_docs\\HANDOVER_SUBMISSION_1P
 $sopDoc = Join-Path $RepoRoot "ops_package\\03_docs\\SOP_v0.1.md"
 $hardeningDoc = Join-Path $RepoRoot "ops_package\\03_docs\\HARDENING_1PAGE.md"
 $checklistDoc = Join-Path $RepoRoot "docs\\testing\\Ticket-17.2_Test_Checklist.md"
+$opsDiagLog = Join-Path $RepoRoot "OPS_DIAG_LOG.md"
 
 if (-not $opsZip) { Write-Host "[FAIL] OPS_Package ZIP 없음"; return }
 if (-not $eviZip) { Write-Host "[FAIL] evidence ZIP 없음"; return }
@@ -49,6 +50,8 @@ if (Test-Path $handoverDoc) { $files += $handoverDoc }
 if (Test-Path $sopDoc) { $files += $sopDoc }
 if (Test-Path $hardeningDoc) { $files += $hardeningDoc }
 if (Test-Path $checklistDoc) { $files += $checklistDoc }
+
+$files = $files | Where-Object { $_ -ne $opsDiagLog }
 
 Compress-Archive -Path $files -DestinationPath $bundleZip -Force
 
