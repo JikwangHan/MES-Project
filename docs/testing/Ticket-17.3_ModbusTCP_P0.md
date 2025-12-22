@@ -46,3 +46,11 @@ node src/index.js --once
   - `[FAIL] Ticket-17.3-01 adapter connect`
   - `[FAIL] Ticket-17.3-04 uplink`
 - 필요 시 `docs/testing/Ticket-17.2_Test_Checklist.md`에 참고로 요약
+
+## 실측 PASS 기록
+- 실행 시각(KST): 2025-12-22 17:50
+- PASS 근거(로그):
+  - `[PASS] Ticket-17.3-01 adapter connect`
+  - `[PASS] Ticket-17.3-02 register map load`
+  - `[PASS] Ticket-17.3-03 normalize payload`
+  - `[PASS] Ticket-17.3-04 uplink`

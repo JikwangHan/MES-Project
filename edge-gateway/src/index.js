@@ -23,6 +23,7 @@ const env = {
   retryDir: process.env.GATEWAY_RETRY_DIR || path.join(__dirname, '..', 'data', 'retry'),
   profile: process.env.GATEWAY_PROFILE || 'sample_modbus_tcp',
 };
+const isTicket173Profile = env.profile === 'sample_modbus_tcp' || env.profile === 'sample_modbus_tcp_sim';
 
 function ensureDir(dir) {
   if (!fs.existsSync(dir)) {
@@ -83,18 +84,18 @@ async function runCycle() {
   let adapterResult;
   try {
     adapterResult = await readFromAdapter(profile);
-    if (env.profile === 'sample_modbus_tcp') {
+    if (isTicket173Profile) {
       console.log('[PASS] Ticket-17.3-01 adapter connect');
       console.log('[PASS] Ticket-17.3-02 register map load');
     }
   } catch (err) {
-    if (env.profile === 'sample_modbus_tcp') {
+    if (isTicket173Profile) {
       console.error('[FAIL] Ticket-17.3-01 adapter connect');
     }
     throw err;
   }
   const payload = normalizeTelemetry(profile, adapterResult);
-  if (env.profile === 'sample_modbus_tcp') {
+  if (isTicket173Profile) {
     console.log('[PASS] Ticket-17.3-03 normalize payload');
   }
 
@@ -116,13 +117,13 @@ async function runCycle() {
     });
     if (!result.ok) {
       enqueueRetry(env.retryDir, payload, result.error);
-      if (env.profile === 'sample_modbus_tcp') {
+      if (isTicket173Profile) {
         console.error('[FAIL] Ticket-17.3-04 uplink');
       }
       throw new Error(result.error || 'uplink failed');
     }
     console.log('[gateway] uplink ok', result.status);
-    if (env.profile === 'sample_modbus_tcp') {
+    if (isTicket173Profile) {
       console.log('[PASS] Ticket-17.3-04 uplink');
     }
   } catch (err) {
