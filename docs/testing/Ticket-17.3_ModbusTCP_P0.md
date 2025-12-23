@@ -44,6 +44,7 @@ set MES_ROLE=VIEWER
 set GATEWAY_PROFILE=sample_modbus_tcp_sim
 pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/smoke_e2e_p0.ps1
 ```
+※ MES health 200이 아니면 uplink/UI 스모크는 SKIP으로 처리되며, E2E 증빙은 완료되지 않은 것으로 본다.
 
 ## 결과 기록
 - PASS 근거 예시(로그):
