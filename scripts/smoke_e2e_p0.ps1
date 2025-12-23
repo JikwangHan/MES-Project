@@ -192,7 +192,8 @@ if ($sim) { Stop-Process -Id $sim.Id -Force -ErrorAction SilentlyContinue }
 if (-not $mesHealthy) {
   Write-Host "[INFO] E2E-P0 smoke completed (mes_down)" -ForegroundColor Yellow
   $global:LASTEXITCODE = 2
-  [Environment]::Exit(2)
+  $host.SetShouldExit(2)
+  exit 2
 }
 
 Write-Host "[INFO] E2E-P0 smoke completed" -ForegroundColor Green

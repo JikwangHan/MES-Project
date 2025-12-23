@@ -54,14 +54,8 @@ pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/smoke_ui_p0.ps1
   - [PASS] UI-P0-03 equipment telemetry list (eventTs/metricCount)
   - [PASS] UI P0 smoke completed
 
-## E2E PASS 기록
-- 실행 시각(KST): 2025-12-23 09:59
-- PASS 근거(로그):
-  - [PASS] E2E-P0-00 mes health check (200 OK)
-  - [PASS] E2E-P0-01 modbus sim started
-  - [PASS] E2E-P0-02 gateway read+normalize ok (profile=sample_modbus_tcp_sim metrics=3)
-  - [PASS] E2E-P0-04 uplink ok (status=201)
-  - [PASS] E2E-P0-05 ui-p0 smoke ok (equipments, dashboard, telemetry)
+## E2E 증빙 참조(단일 근거)
+- Ticket-17.3의 "E2E 증빙(표준 5줄)" 섹션을 단일 근거로 사용한다.
 
 ## MES 미기동 시 안내(정상 동작)
 - health 200이 아니면 uplink와 UI 스모크는 SKIP으로 처리됨

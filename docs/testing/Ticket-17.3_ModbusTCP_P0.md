@@ -65,6 +65,21 @@ pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/smoke_e2e_p0.ps1
   - `[PASS] Ticket-17.3-03 normalize payload`
   - `[PASS] Ticket-17.3-04 uplink`
 
+## E2E 증빙(표준 5줄)
+### MES 정상 기동 상태
+- 실행 시각(KST): 2025-12-23 09:59
+```
+[PASS] E2E-P0-00 mes health check (200 OK)
+[PASS] E2E-P0-01 modbus sim started
+[PASS] E2E-P0-02 gateway read+normalize ok (profile=sample_modbus_tcp_sim metrics=3)
+[PASS] E2E-P0-04 uplink ok (status=201)
+[PASS] E2E-P0-05 ui-p0 smoke ok (equipments, dashboard, telemetry)
+```
+
+### 증빙 단일 근거 정책
+- 이 섹션이 E2E 증빙의 단일 근거이며, 다른 문서에는 중복 삽입하지 않는다.
+- 다른 문서는 이 섹션으로 링크만 유지한다.
+
 ## 재현성 확인
 - npm ci 완료(KST): 2025-12-22 17:58
 - modbus-serial 버전: 8.0.23
