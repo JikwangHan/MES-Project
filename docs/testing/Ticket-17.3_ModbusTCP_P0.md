@@ -67,6 +67,10 @@ pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/smoke_e2e_p0.ps1
 
 ## E2E 증빙(표준 5줄)
 ### MES 정상 기동 상태
+- E2E_META 템플릿(복붙):
+  `E2E_META | KST=YYYY-MM-DD HH:mm | Env=OS=____;PS=____;Node=____;MES_BASE_URL=____ | Script=smoke_e2e_p0.ps1@____`
+- 예시(값만 교체, 경로/계정/서버명 금지):
+  `E2E_META | KST=2025-12-23 16:40 | Env=OS=Windows;PS=7.4;Node=v20.11;MES_BASE_URL=http://localhost:8080 | Script=smoke_e2e_p0.ps1@39ae496`
 - 실행 시각(KST): 2025-12-23 09:59
 ```
 [PASS] E2E-P0-00 mes health check (200 OK)
