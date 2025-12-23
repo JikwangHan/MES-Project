@@ -36,6 +36,15 @@ set GATEWAY_PROFILE=sample_modbus_tcp_sim
 node src/index.js --once
 ```
 
+### 3) E2E P0 스모크(게이트웨이 → UI)
+```
+set MES_BASE_URL=http://localhost:4000
+set MES_COMPANY_ID=COMPANY-A
+set MES_ROLE=VIEWER
+set GATEWAY_PROFILE=sample_modbus_tcp_sim
+pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/smoke_e2e_p0.ps1
+```
+
 ## 결과 기록
 - PASS 근거 예시(로그):
   - `[PASS] Ticket-17.3-01 adapter connect`

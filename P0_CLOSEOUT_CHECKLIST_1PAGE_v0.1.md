@@ -29,6 +29,10 @@
 3) uplink 실패 시 운영자가 인지 가능한 표시 1개
 4) Ticket-17.3 재실행 후 “수신 흔적” 화면 캡처 1장 확보
 
+UI P0(최근 수신·상태·실패 표시) 항목은 UI-P0 smoke PASS(장비목록 lastSeenAt/status + 대시보드 counts + 장비상세 telemetry)로 닫힘.
+
+E2E P0 증빙은 scripts/smoke_e2e_p0.ps1 PASS로 닫힘.
+
 ## D. PR 합치는 순서(리스크 최소)
 1) Gateway PR: Modbus TCP + 시뮬레이터 + Ticket-17.3 증빙
 2) Standard PR: 정규화 규칙/스키마 문서

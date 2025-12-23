@@ -53,3 +53,14 @@ pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/smoke_ui_p0.ps1
   - [PASS] UI-P0-02 dashboard telemetry status counts
   - [PASS] UI-P0-03 equipment telemetry list (eventTs/metricCount)
   - [PASS] UI P0 smoke completed
+
+## E2E PASS 기록
+- 실행 시각(KST): 2025-12-22 18:18
+- PASS 근거(로그):
+  - [PASS] E2E-P0-01 modbus sim started
+  - [PASS] E2E-P0-02 gateway once completed
+  - [PASS] E2E-P0-03 UI P0 smoke completed
+  - [PASS] E2E-P0 smoke completed
+
+## 참고
+- P0 닫기 체크리스트: P0_CLOSEOUT_CHECKLIST_1PAGE_v0.1.md
