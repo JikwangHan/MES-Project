@@ -57,6 +57,10 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\ops_package\02_scripts
 - [ ] 최종 판정:
   - `judge_handover_ready.ps1` 실행 후 [PASS] 확인
 
+## 원샷 동선 1페이지
+
+- [ ] 빠른 실행 가이드: `OPS_REHEARSAL_SUBMIT_FLOW_1PAGE.md`
+
 ---
 
 ## E) 외부 제출 규칙(기관/고객)

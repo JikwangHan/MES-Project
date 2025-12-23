@@ -63,6 +63,9 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\ops_package\02_scripts
 ## 인수인계 제출 체크리스트
 `ops_package/03_docs/HANDOVER_SUBMISSION_1PAGE.md`
 
+## 원샷 동선 1페이지
+`OPS_REHEARSAL_SUBMIT_FLOW_1PAGE.md`
+
 ## 운영 서버 리허설(Windows)
 `ops_package/03_docs/REHEARSAL_Windows_NSSM_SELFCHECK_PASS.md`
 `ops_package/03_docs/CAPTURE_INDEX_TEMPLATE.md`
