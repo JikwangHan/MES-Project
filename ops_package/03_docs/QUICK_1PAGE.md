@@ -65,6 +65,7 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\ops_package\02_scripts
 
 ## 원샷 동선 1페이지
 `OPS_REHEARSAL_SUBMIT_FLOW_1PAGE.md`
+원샷 실행 전 MODE=EXT/INT를 먼저 선택하세요(애매하면 EXT).
 
 ## 운영 서버 리허설(Windows)
 `ops_package/03_docs/REHEARSAL_Windows_NSSM_SELFCHECK_PASS.md`

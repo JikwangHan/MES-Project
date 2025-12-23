@@ -5,6 +5,15 @@
 
 ---
 
+## STEP 0) MODE 선택(필수, 3초)
+
+- MODE=EXT(외부 제출) / MODE=INT(내부 제출)
+- 애매하면 **무조건 EXT**로 진행(최소 노출)
+- EXT 금지: 로컬 경로(COPIED_BUNDLE_PATH), 서버명/계정명, 내부 커밋 해시
+- INT 허용: 필요 시 Commit(short) 포함 가능(권장: 파일명 중심)
+
+---
+
 ## 0) 프리체크(60초)
 
 1) 레포 상태 확인
@@ -59,9 +68,16 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\ops_package\02_scripts
 
 ## 4) 제출 메시지(외부용 최소 노출)
 
+### EXT 레일(외부 제출)
+
 외부 제출 메시지 예시:
 - `ops_package/03_docs/EXTERNAL_SUBMISSION_MESSAGE_EXAMPLES_2LINES.md`
 - 포털 1줄 제한 시: **초압축 1줄** 사용
+
+### INT 레일(내부 제출)
+
+- 내부 운영 스레드 첫 줄 또는 `OPS_DIAG_LOG.md`에 기록
+- 필요 시 Commit(short) 포함 가능(기본은 파일명 중심 유지)
 
 ---
 
@@ -77,3 +93,8 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\tools\e2e\print_e2e_me
 ```
 3) Ticket-17.3의 “E2E 증빙(표준 5줄)” 섹션에 붙여넣기
 
+---
+
+## 최종 확인(모드 체크 1줄)
+
+- 제출 직전: MODE=EXT이면 “파일명만 사용”인지 1초 확인
