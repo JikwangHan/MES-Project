@@ -1,4 +1,5 @@
 const express = require('express');
+const path = require('path');
 const { init } = require('./db');
 const tenantMiddleware = require('./middleware/tenant');
 const { attachRole } = require('./middleware/auth');
@@ -33,6 +34,11 @@ init();
 cleanupNoncesOnce();
 startNonceCleanupScheduler();
 startReportKpiCachePurgeScheduler();
+
+// 헤더 없이 확인 가능한 상태 페이지 (브라우저 테스트용)
+app.get('/status', (_req, res) => res.status(200).send('MES API server is running.'));
+app.use('/ui', express.static(path.join(__dirname, '..', 'public', 'ui')));
+app.get('/', (_req, res) => res.redirect('/ui/'));
 
 // 기본 미들웨어
 app.use(

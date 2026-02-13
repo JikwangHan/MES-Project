@@ -1,0 +1,52 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>MES UI - Equipments</title>
+  <link rel="stylesheet" href="./styles.css">
+</head>
+<body>
+  <header>
+    <h1>설비 목록 (P0)</h1>
+    <nav>
+      <a href="./index.html">Dashboard</a>
+      <a href="./equipments.html">Equipment List</a>
+    </nav>
+  </header>
+  <main>
+    <div id="configRoot"></div>
+    <div class="panel">
+      <h2>필터</h2>
+      <div class="row">
+        <label>Status
+          <select id="statusFilter">
+            <option value="ALL">ALL</option>
+            <option value="OK">OK</option>
+            <option value="WARNING">WARNING</option>
+            <option value="NEVER">NEVER</option>
+          </select>
+        </label>
+        <button id="applyBtn">적용</button>
+      </div>
+    </div>
+    <div class="panel">
+      <h2>장비 목록</h2>
+      <table>
+        <thead>
+          <tr>
+            <th>장비명</th>
+            <th>deviceKey</th>
+            <th>최근 수신 시각</th>
+            <th>상태</th>
+          </tr>
+        </thead>
+        <tbody id="listBody"></tbody>
+      </table>
+    </div>
+    <div id="errorRoot"></div>
+  </main>
+  <script src="./common.js"></script>
+  <script src="./equipments.js"></script>
+</body>
+</html>
