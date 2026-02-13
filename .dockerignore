@@ -1,0 +1,8 @@
+﻿node_modules
+edge-gateway/node_modules
+logs
+*.log
+.git
+.vscode
+ops_package
+.env

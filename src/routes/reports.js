@@ -66,35 +66,43 @@ const toCountMap = (rows, keyField, valueField = 'cnt') => {
   return map;
 };
 
-const cacheGetStmt = db.prepare(
-  `SELECT payload_json
-   FROM report_kpi_cache
-   WHERE company_id = ?
-     AND report_name = ?
-     AND from_date = ?
-     AND to_date = ?
-     AND params_json = ?
-     AND CAST(expires_at AS INTEGER) > ?
-   LIMIT 1`
-);
+let cacheGetStmt;
+let cacheUpsertStmt;
 
-const cacheUpsertStmt = db.prepare(
-  `INSERT INTO report_kpi_cache (
-     company_id,
-     report_name,
-     from_date,
-     to_date,
-     params_json,
-     payload_json,
-     expires_at,
-     created_at
-   ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-   ON CONFLICT(company_id, report_name, from_date, to_date, params_json)
-   DO UPDATE SET
-     payload_json = excluded.payload_json,
-     expires_at = excluded.expires_at,
-     created_at = excluded.created_at`
-);
+const ensureCacheStmts = () => {
+  if (!cacheGetStmt) {
+    cacheGetStmt = db.prepare(
+      `SELECT payload_json
+       FROM report_kpi_cache
+       WHERE company_id = ?
+         AND report_name = ?
+         AND from_date = ?
+         AND to_date = ?
+         AND params_json = ?
+         AND CAST(expires_at AS INTEGER) > ?
+       LIMIT 1`
+    );
+  }
+  if (!cacheUpsertStmt) {
+    cacheUpsertStmt = db.prepare(
+      `INSERT INTO report_kpi_cache (
+         company_id,
+         report_name,
+         from_date,
+         to_date,
+         params_json,
+         payload_json,
+         expires_at,
+         created_at
+       ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+       ON CONFLICT(company_id, report_name, from_date, to_date, params_json)
+       DO UPDATE SET
+         payload_json = excluded.payload_json,
+         expires_at = excluded.expires_at,
+         created_at = excluded.created_at`
+    );
+  }
+};
 
 const getCacheMode = () => (process.env.REPORT_KPI_CACHE_MODE || 'PREFER').toUpperCase();
 
@@ -128,6 +136,7 @@ const toStableJson = (value) => {
 
 const getCachedPayload = (companyId, reportName, from, to, paramsJson) => {
   const nowEpoch = Math.floor(Date.now() / 1000);
+  ensureCacheStmts();
   const row = cacheGetStmt.get(companyId, reportName, from, to, paramsJson, nowEpoch);
   if (!row) return null;
   try {
@@ -142,6 +151,7 @@ const setCachedPayload = (companyId, reportName, from, to, paramsJson, payload) 
   const nowEpoch = Math.floor(Date.now() / 1000);
   const expiresAt = nowEpoch + ttl;
   const createdAt = new Date().toISOString();
+  ensureCacheStmts();
   cacheUpsertStmt.run(
     companyId,
     reportName,
