@@ -109,3 +109,16 @@ pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/smoke_e2e_p0.ps1
   - `[PASS] E2E-P0-02 gateway read+normalize ok (profile=sample_modbus_tcp_sim metrics=3)`
   - `[PASS] E2E-P0-04 uplink ok (status=201)`
   - `[PASS] E2E-P0-05 ui-p0 smoke ok (equipments, dashboard, telemetry)`
+
+## 최신 재검증 결과 (2026-02-13 KST)
+- 실행 시각(KST): 2026-02-13 15:52
+- UI P0 smoke:
+  - `[PASS] UI-P0-01 equipments list fields (lastSeenAt/status)`
+  - `[PASS] UI-P0-02 dashboard telemetry status counts`
+  - `[PASS] UI-P0-03 equipment telemetry list (eventTs/metricCount)`
+- E2E P0 smoke:
+  - `[PASS] E2E-P0-00 mes health check (200 OK)`
+  - `[PASS] E2E-P0-01 modbus sim started`
+  - `[PASS] E2E-P0-02 gateway read+normalize ok (profile=sample_modbus_tcp_sim metrics=3)`
+  - `[PASS] E2E-P0-04 uplink ok (status=201)`
+  - `[PASS] E2E-P0-05 ui-p0 smoke ok (equipments, dashboard, telemetry)`
